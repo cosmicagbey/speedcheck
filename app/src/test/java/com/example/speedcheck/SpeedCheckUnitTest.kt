@@ -4,13 +4,15 @@ import com.example.speedcheck.data.UserPreferences
 import com.example.speedcheck.model.MonitoringState
 import com.example.speedcheck.model.SpeedAlertStatus
 import com.example.speedcheck.model.TripStats
+import com.example.speedcheck.service.SpeedCameraDetector
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for SpeedCheck core logic, calculations, and state evaluation.
+ * Unit tests for SpeedCheck core logic, calculations, state evaluation,
+ * and Ghana MTTD speed camera zone configurations.
  */
 class SpeedCheckUnitTest {
 
@@ -21,6 +23,7 @@ class SpeedCheckUnitTest {
         assertEquals(5, prefs.approachingOffsetKmh)
         assertTrue(prefs.voiceAlertsEnabled)
         assertTrue(prefs.approachingAlertEnabled)
+        assertTrue(prefs.autoDetectSpeedLimit)
         assertTrue(prefs.autoDetectVehicleMovement)
         assertTrue(prefs.autoStartOnBoot)
         assertEquals("FEMALE", prefs.voiceGender)
@@ -109,5 +112,41 @@ class SpeedCheckUnitTest {
         assertTrue(states.contains("WAITING_FOR_MOVEMENT"))
         assertTrue(states.contains("ACTIVE_MONITORING"))
         assertTrue(states.contains("PAUSED_STATIONARY"))
+    }
+
+    @Test
+    fun ghanaSpeedCameras_containAllRequiredLocations() {
+        val cameras = SpeedCameraDetector.GHANA_SPEED_CAMERAS
+        assertEquals(5, cameras.size)
+
+        // 1. Borteyman Sports Facility T-Junction
+        val borteyman = cameras.find { it.id == "borteyman_junction" }
+        assertNotNull(borteyman)
+        assertEquals(80, borteyman?.speedLimitKmh)
+        assertTrue(borteyman?.name?.contains("Borteyman") == true)
+
+        // 2. The N1 Highway near Fiesta Royale Hotel
+        val fiestaRoyale = cameras.find { it.id == "n1_fiesta_royale" }
+        assertNotNull(fiestaRoyale)
+        assertEquals(80, fiestaRoyale?.speedLimitKmh)
+        assertTrue(fiestaRoyale?.name?.contains("Fiesta Royale") == true)
+
+        // 3. The N1 Highway near Baah Junction / Bar Junction
+        val baahJunction = cameras.find { it.id == "n1_baah_junction" }
+        assertNotNull(baahJunction)
+        assertEquals(80, baahJunction?.speedLimitKmh)
+        assertTrue(baahJunction?.name?.contains("Baah") == true)
+
+        // 4. Kawukudi (Obasanjo Highway)
+        val kawukudi = cameras.find { it.id == "kawukudi_obasanjo" }
+        assertNotNull(kawukudi)
+        assertEquals(50, kawukudi?.speedLimitKmh)
+        assertTrue(kawukudi?.name?.contains("Kawukudi") == true)
+
+        // 5. Kanda Highway
+        val kanda = cameras.find { it.id == "kanda_highway" }
+        assertNotNull(kanda)
+        assertEquals(50, kanda?.speedLimitKmh)
+        assertTrue(kanda?.name?.contains("Kanda") == true)
     }
 }

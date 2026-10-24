@@ -34,6 +34,7 @@ class PreferencesRepository private constructor(private val context: Context) {
         val ALERT_COOLDOWN_SECONDS = intPreferencesKey("alert_cooldown_seconds")
         val MONITORING_ENABLED = booleanPreferencesKey("monitoring_enabled")
         val AUTO_DETECT_MOVEMENT = booleanPreferencesKey("auto_detect_movement")
+        val AUTO_DETECT_SPEED_LIMIT = booleanPreferencesKey("auto_detect_speed_limit")
         val AUTO_START_ON_BOOT = booleanPreferencesKey("auto_start_on_boot")
         val HIGH_CONTRAST_MODE = booleanPreferencesKey("high_contrast_mode")
     }
@@ -57,6 +58,7 @@ class PreferencesRepository private constructor(private val context: Context) {
                 speechPitch = preferences[PreferencesKeys.SPEECH_PITCH] ?: 1.0f,
                 alertCooldownSeconds = preferences[PreferencesKeys.ALERT_COOLDOWN_SECONDS] ?: 15,
                 monitoringEnabled = preferences[PreferencesKeys.MONITORING_ENABLED] ?: false,
+                autoDetectSpeedLimit = preferences[PreferencesKeys.AUTO_DETECT_SPEED_LIMIT] ?: true,
                 autoDetectVehicleMovement = preferences[PreferencesKeys.AUTO_DETECT_MOVEMENT] ?: true,
                 autoStartOnBoot = preferences[PreferencesKeys.AUTO_START_ON_BOOT] ?: true,
                 highContrastMode = preferences[PreferencesKeys.HIGH_CONTRAST_MODE] ?: true
@@ -118,6 +120,12 @@ class PreferencesRepository private constructor(private val context: Context) {
     suspend fun updateMonitoringEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.MONITORING_ENABLED] = enabled
+        }
+    }
+
+    suspend fun updateAutoDetectSpeedLimit(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTO_DETECT_SPEED_LIMIT] = enabled
         }
     }
 

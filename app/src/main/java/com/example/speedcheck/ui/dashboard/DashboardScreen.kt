@@ -3,6 +3,7 @@ package com.example.speedcheck.ui.dashboard
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,8 +28,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
@@ -45,6 +49,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -58,12 +64,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.speedcheck.R
 import com.example.speedcheck.data.PreferencesRepository
 import com.example.speedcheck.data.UserPreferences
+import com.example.speedcheck.model.CameraDetectionResult
 import com.example.speedcheck.model.MonitoringState
 import com.example.speedcheck.model.SpeedAlertStatus
 import com.example.speedcheck.model.TripStats
@@ -79,8 +88,8 @@ import com.example.speedcheck.ui.components.PermissionHandler
 import kotlinx.coroutines.launch
 
 /**
- * Dashboard Screen: High-contrast digital speedometer, limit selectors,
- * live trip statistics, and one-touch monitoring controls.
+ * Dashboard Screen: High-contrast digital speedometer, Auto-Detect camera radar,
+ * speed limit selectors, live trip statistics, and one-touch monitoring controls.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -98,12 +107,20 @@ fun DashboardScreen(
     val monitoringState by SpeedTrackingService.monitoringStateFlow.collectAsState()
     val alertStatus by SpeedTrackingService.alertStatusFlow.collectAsState()
     val tripStats by SpeedTrackingService.tripStatsFlow.collectAsState()
+    val cameraDetection by SpeedTrackingService.cameraDetectionFlow.collectAsState()
+    val liveEffectiveLimit by SpeedTrackingService.effectiveLimitFlow.collectAsState()
 
     var showCustomLimitDialog by remember { mutableStateOf(false) }
     var customLimitText by remember { mutableStateOf("") }
     var hasLocationPermissions by remember { mutableStateOf(false) }
 
     val presetLimits = listOf(30, 50, 80, 100, 120)
+
+    val currentLimit = if (userPreferences.autoDetectSpeedLimit) {
+        if (monitoringState != MonitoringState.STOPPED) liveEffectiveLimit else cameraDetection.recommendedLimitKmh
+    } else {
+        userPreferences.speedLimitKmh
+    }
 
     // Permission Handler
     PermissionHandler(
@@ -122,7 +139,7 @@ fun DashboardScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Bar
+            // Top Bar with App Logo
             DashboardTopBar(
                 isVoiceMuted = !userPreferences.voiceAlertsEnabled,
                 onToggleMute = {
@@ -133,24 +150,37 @@ fun DashboardScreen(
                 onOpenSettings = onNavigateToSettings
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Status Badge (Active / Waiting for Movement / Stopped / Paused)
             StatusBadge(monitoringState = monitoringState, alertStatus = alertStatus)
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Auto-Detect Speed Limit Switch Bar
+            AutoDetectToggleCard(
+                isAutoDetect = userPreferences.autoDetectSpeedLimit,
+                detectionResult = cameraDetection,
+                onToggleAutoDetect = { enabled ->
+                    scope.launch {
+                        repository.updateAutoDetectSpeedLimit(enabled)
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Main Digital Speedometer Gauge
             SpeedometerGauge(
                 currentSpeedKmh = currentSpeed,
-                speedLimitKmh = userPreferences.speedLimitKmh,
+                speedLimitKmh = currentLimit,
                 alertStatus = alertStatus
             )
 
             // Early Warning Notification Info
-            val approachingThreshold = userPreferences.speedLimitKmh - userPreferences.approachingOffsetKmh
+            val approachingThreshold = currentLimit - userPreferences.approachingOffsetKmh
             Text(
-                text = "Voice warning at $approachingThreshold km/h • Limit ${userPreferences.speedLimitKmh} km/h",
+                text = "Voice warning at $approachingThreshold km/h • Limit $currentLimit km/h",
                 fontSize = 13.sp,
                 color = when (alertStatus) {
                     SpeedAlertStatus.EXCEEDED -> SpeedExceededRed
@@ -160,79 +190,130 @@ fun DashboardScreen(
                 fontWeight = FontWeight.SemiBold
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Speed Limit Quick Switcher Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "SPEED LIMIT (KM/H)",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                            letterSpacing = 1.sp
-                        )
-                        Text(
-                            text = "Active: ${userPreferences.speedLimitKmh} km/h",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = SpeedSafeGreen
-                        )
-                    }
+            // Speed Limit Selection Card (Manual Mode or Auto-Detect Active Indicator)
+            if (!userPreferences.autoDetectSpeedLimit) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "MANUAL SPEED LIMIT (KM/H)",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "Active: ${userPreferences.speedLimitKmh} km/h",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = SpeedSafeGreen
+                            )
+                        }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        presetLimits.forEach { limit ->
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            presetLimits.forEach { limit ->
+                                FilterChip(
+                                    selected = userPreferences.speedLimitKmh == limit,
+                                    onClick = {
+                                        scope.launch { repository.updateSpeedLimit(limit) }
+                                    },
+                                    label = { Text("$limit") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = SpeedSafeGreen,
+                                        selectedLabelColor = Color.Black
+                                    )
+                                )
+                            }
+
+                            // Custom Limit Chip
                             FilterChip(
-                                selected = userPreferences.speedLimitKmh == limit,
+                                selected = userPreferences.speedLimitKmh !in presetLimits,
                                 onClick = {
-                                    scope.launch { repository.updateSpeedLimit(limit) }
+                                    customLimitText = userPreferences.speedLimitKmh.toString()
+                                    showCustomLimitDialog = true
                                 },
-                                label = { Text("$limit") },
+                                label = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(if (userPreferences.speedLimitKmh !in presetLimits) "${userPreferences.speedLimitKmh}" else "Custom")
+                                    }
+                                },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = SpeedSafeGreen,
+                                    selectedContainerColor = GhanaGold,
                                     selectedLabelColor = Color.Black
                                 )
                             )
                         }
-
-                        // Custom Limit Chip
-                        FilterChip(
-                            selected = userPreferences.speedLimitKmh !in presetLimits,
-                            onClick = {
-                                customLimitText = userPreferences.speedLimitKmh.toString()
-                                showCustomLimitDialog = true
-                            },
-                            label = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(if (userPreferences.speedLimitKmh !in presetLimits) "${userPreferences.speedLimitKmh}" else "Custom")
-                                }
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = GhanaGold,
-                                selectedLabelColor = Color.Black
+                    }
+                }
+            } else {
+                // Auto-Detect Status Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (cameraDetection.activeZone != null)
+                            GhanaGold.copy(alpha = 0.15f)
+                        else
+                            MaterialTheme.colorScheme.surface
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    border = if (cameraDetection.activeZone != null)
+                        androidx.compose.foundation.BorderStroke(1.dp, GhanaGold.copy(alpha = 0.6f))
+                    else null
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (cameraDetection.activeZone != null) Icons.Default.CameraAlt else Icons.Default.GpsFixed,
+                                contentDescription = null,
+                                tint = if (cameraDetection.activeZone != null) GhanaGold else SpeedSafeGreen,
+                                modifier = Modifier.size(20.dp)
                             )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (cameraDetection.activeZone != null) "AUTOMATED CAMERA RADAR" else "AUTO-DETECT SPEED LIMIT",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (cameraDetection.activeZone != null) GhanaGold else SpeedSafeGreen,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = cameraDetection.statusDescription,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
+                        if (cameraDetection.activeZone != null) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Camera zone enforcement: Speed limit automatically set to ${cameraDetection.recommendedLimitKmh} km/h",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Big Start/Stop Monitoring Button
             val isMonitoring = monitoringState != MonitoringState.STOPPED
@@ -268,7 +349,7 @@ fun DashboardScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Trip Statistics Card
             TripStatsCard(tripStats = tripStats)
@@ -334,19 +415,14 @@ private fun DashboardTopBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
+            // App Logo
+            Image(
+                painter = painterResource(id = R.drawable.app_logo),
+                contentDescription = "SpeedCheck Logo",
                 modifier = Modifier
-                    .size(36.dp)
-                    .background(SpeedSafeGreen, shape = CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.DirectionsCar,
-                    contentDescription = null,
-                    tint = Color.Black,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(10.dp))
+            )
             Spacer(modifier = Modifier.width(10.dp))
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -392,6 +468,66 @@ private fun DashboardTopBar(
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun AutoDetectToggleCard(
+    isAutoDetect: Boolean,
+    detectionResult: CameraDetectionResult,
+    onToggleAutoDetect: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isAutoDetect)
+                AccentCyan.copy(alpha = 0.12f)
+            else
+                MaterialTheme.colorScheme.surface
+        ),
+        shape = RoundedCornerShape(14.dp),
+        border = if (isAutoDetect)
+            androidx.compose.foundation.BorderStroke(1.dp, AccentCyan.copy(alpha = 0.5f))
+        else null
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Icon(
+                    imageVector = Icons.Default.Radar,
+                    contentDescription = null,
+                    tint = if (isAutoDetect) AccentCyan else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = "Auto-Detect Speed Limit",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = if (isAutoDetect) "Detects cameras & sets limit automatically" else "Manual limit mode active",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                    )
+                }
+            }
+
+            Switch(
+                checked = isAutoDetect,
+                onCheckedChange = onToggleAutoDetect,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.Black,
+                    checkedTrackColor = AccentCyan
+                )
+            )
         }
     }
 }

@@ -6,7 +6,19 @@
 
 ## 🚀 Key Features
 
-### 1. Speed Limit Setting & Ghana Presets
+### 1. Auto-Detect Speed Limits & Camera Radar (New!)
+- **Intelligent Location & Heading Trajectory**: Automatically detects when you are driving towards automated speed cameras in Accra, sets the official speed limit for that corridor, and announces it via voice.
+- **Active MTTD Camera Locations Supported**:
+  1. **Borteyman Sports Facility T-Junction** (80 km/h)
+  2. **The N1 Highway near Fiesta Royale Hotel** (80 km/h)
+  3. **The N1 Highway near Baah Junction / Bar Junction** (80 km/h)
+  4. **Kawukudi (Olusegun Obasanjo Highway)** (50 km/h)
+  5. **Kanda Highway** (50 km/h)
+- **Automatic Voice Notification**: Upon approaching an enforcement zone, SpeedCheck announces:
+  > *"Speed camera zone ahead on N1 Highway Fiesta Royale. Speed limit is 80 kilometers per hour."*
+- **One-Touch Toggle**: Users can toggle **Auto-Detect** ON and OFF at any time on the Dashboard or Settings screen. When disabled, the app falls back to personal manual limits.
+
+### 2. Speed Limit Setting & Ghana Presets
 - **Quick Switch Presets**: One-tap speed limit selection matching Ghana Road Safety standards:
   - **30 km/h**: School zones, busy market corridors, hospital areas, and residential feeder roads.
   - **50 km/h**: Standard urban roads and town centers (Accra, Kumasi, Takoradi).

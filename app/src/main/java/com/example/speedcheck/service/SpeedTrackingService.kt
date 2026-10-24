@@ -12,6 +12,7 @@ import android.os.Looper
 import android.util.Log
 import com.example.speedcheck.data.PreferencesRepository
 import com.example.speedcheck.data.UserPreferences
+import com.example.speedcheck.model.CameraDetectionResult
 import com.example.speedcheck.model.MonitoringState
 import com.example.speedcheck.model.SpeedAlertStatus
 import com.example.speedcheck.model.TripStats
@@ -33,8 +34,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Foreground Service responsible for continuous GPS speed monitoring,
- * automatic vehicle movement detection, battery-conserving idle pause,
- * and Text-to-Speech overspeed alerts.
+ * automatic location-based speed camera detection (Ghana MTTD corridors),
+ * vehicle movement detection, and Text-to-Speech overspeed alerts.
  */
 class SpeedTrackingService : Service() {
 
@@ -53,6 +54,9 @@ class SpeedTrackingService : Service() {
     private var consecutiveStationarySeconds = 0
     private var lastLocation: Location? = null
     private var currentMonitoringState = MonitoringState.STOPPED
+
+    // Speed camera zone announcement tracker
+    private var lastAnnouncedCameraZoneId: String? = null
 
     // Trip Statistics
     private var tripStats = TripStats()
@@ -88,12 +92,13 @@ class SpeedTrackingService : Service() {
                     pitch = prefs.speechPitch
                 )
 
-                // Update notification with new limit
+                val effectiveLimit = resolveEffectiveLimit()
                 notificationHelper.updateNotification(
                     speedKmh = _currentSpeedFlow.value,
-                    limitKmh = prefs.speedLimitKmh,
+                    limitKmh = effectiveLimit,
                     monitoringState = currentMonitoringState,
-                    alertStatus = _alertStatusFlow.value
+                    alertStatus = _alertStatusFlow.value,
+                    cameraZoneName = _cameraDetectionFlow.value.activeZone?.name
                 )
             }
         }
@@ -128,11 +133,12 @@ class SpeedTrackingService : Service() {
         _tripStatsFlow.value = tripStats
         totalSpeedSum = 0.0
         speedReadingsCount = 0
+        lastAnnouncedCameraZoneId = null
 
-        // Start Foreground Service with permanent notification
+        val effectiveLimit = resolveEffectiveLimit()
         val notification = notificationHelper.buildForegroundNotification(
             speedKmh = 0f,
-            limitKmh = currentPreferences.speedLimitKmh,
+            limitKmh = effectiveLimit,
             monitoringState = currentMonitoringState,
             alertStatus = SpeedAlertStatus.NORMAL
         )
@@ -163,6 +169,8 @@ class SpeedTrackingService : Service() {
         _monitoringStateFlow.value = MonitoringState.STOPPED
         _currentSpeedFlow.value = 0f
         _alertStatusFlow.value = SpeedAlertStatus.NORMAL
+        _cameraDetectionFlow.value = CameraDetectionResult()
+        lastAnnouncedCameraZoneId = null
 
         serviceScope.launch {
             preferencesRepository.updateMonitoringEnabled(false)
@@ -204,18 +212,45 @@ class SpeedTrackingService : Service() {
         // Update Trip Statistics
         updateTripStats(speedKmh, location)
 
-        // Evaluate Vehicle Motion State Machine
+        // Evaluate Vehicle Motion State Machine (Movement vs Stationary)
         evaluateMotionState(speedKmh)
 
+        // Auto-Detect Speed Camera Zone & Trajectory
+        val detectionResult = SpeedCameraDetector.evaluateLocation(
+            currentLocation = location,
+            currentSpeedKmh = speedKmh,
+            autoDetectEnabled = currentPreferences.autoDetectSpeedLimit,
+            manualLimitKmh = currentPreferences.speedLimitKmh
+        )
+        _cameraDetectionFlow.value = detectionResult
+
+        val effectiveLimit = if (currentPreferences.autoDetectSpeedLimit) {
+            detectionResult.recommendedLimitKmh
+        } else {
+            currentPreferences.speedLimitKmh
+        }
+        _effectiveLimitFlow.value = effectiveLimit
+
+        // Voice announcement when approaching a new speed camera zone
+        if (currentPreferences.autoDetectSpeedLimit && currentPreferences.voiceAlertsEnabled) {
+            val zone = detectionResult.activeZone
+            if (zone != null && zone.id != lastAnnouncedCameraZoneId && detectionResult.isMovingTowardsCamera) {
+                ttsManager.speak("Speed camera zone ahead on ${zone.name}. Speed limit is ${zone.speedLimitKmh} kilometers per hour.")
+                lastAnnouncedCameraZoneId = zone.id
+            } else if (zone == null) {
+                lastAnnouncedCameraZoneId = null
+            }
+        }
+
         // Evaluate Speed Alert Status (Normal / Approaching / Exceeded)
-        val alertStatus = evaluateSpeedAlert(speedKmh)
+        val alertStatus = evaluateSpeedAlert(speedKmh, effectiveLimit)
         _alertStatusFlow.value = alertStatus
 
-        // Trigger Voice Prompt if enabled
+        // Trigger Approaching & Over-Limit Voice Prompts
         if (currentPreferences.voiceAlertsEnabled && currentMonitoringState == MonitoringState.ACTIVE_MONITORING) {
             ttsManager.processSpeedAlert(
                 currentSpeedKmh = speedKmh,
-                speedLimitKmh = currentPreferences.speedLimitKmh,
+                speedLimitKmh = effectiveLimit,
                 approachingOffsetKmh = currentPreferences.approachingOffsetKmh,
                 cooldownSeconds = currentPreferences.alertCooldownSeconds
             )
@@ -224,20 +259,19 @@ class SpeedTrackingService : Service() {
         // Update persistent notification
         notificationHelper.updateNotification(
             speedKmh = speedKmh,
-            limitKmh = currentPreferences.speedLimitKmh,
+            limitKmh = effectiveLimit,
             monitoringState = currentMonitoringState,
-            alertStatus = alertStatus
+            alertStatus = alertStatus,
+            cameraZoneName = detectionResult.activeZone?.name
         )
 
         lastLocation = location
     }
 
     private fun calculateSpeedKmh(location: Location): Float {
-        // Android Location.getSpeed() returns speed in meters/second
         return if (location.hasSpeed()) {
             (location.speed * 3.6f).coerceAtLeast(0f)
         } else {
-            // Fallback: calculate delta distance / delta time if lastLocation exists
             val prev = lastLocation
             if (prev != null && location.time > prev.time) {
                 val distanceMeters = location.distanceTo(prev)
@@ -296,7 +330,6 @@ class SpeedTrackingService : Service() {
             consecutiveMovingReadings = 0
             consecutiveStationarySeconds++
 
-            // If stopped for > 120 seconds, pause/throttle to save battery
             if (consecutiveStationarySeconds >= 120 && currentMonitoringState == MonitoringState.ACTIVE_MONITORING) {
                 currentMonitoringState = MonitoringState.PAUSED_STATIONARY
                 _monitoringStateFlow.value = currentMonitoringState
@@ -304,19 +337,25 @@ class SpeedTrackingService : Service() {
                 Log.d(TAG, "Vehicle stationary for > 2 min. Paused to save battery.")
             }
         } else {
-            // Speed between 5 and 18 km/h (slow crawling or walking)
             consecutiveStationarySeconds = 0
         }
     }
 
-    private fun evaluateSpeedAlert(speedKmh: Float): SpeedAlertStatus {
-        val limit = currentPreferences.speedLimitKmh
-        val approachingThreshold = (limit - currentPreferences.approachingOffsetKmh).coerceAtLeast(1)
+    private fun evaluateSpeedAlert(speedKmh: Float, effectiveLimit: Int): SpeedAlertStatus {
+        val approachingThreshold = (effectiveLimit - currentPreferences.approachingOffsetKmh).coerceAtLeast(1)
 
         return when {
-            speedKmh >= limit -> SpeedAlertStatus.EXCEEDED
+            speedKmh >= effectiveLimit -> SpeedAlertStatus.EXCEEDED
             speedKmh >= approachingThreshold -> SpeedAlertStatus.APPROACHING
             else -> SpeedAlertStatus.NORMAL
+        }
+    }
+
+    private fun resolveEffectiveLimit(): Int {
+        return if (currentPreferences.autoDetectSpeedLimit) {
+            _cameraDetectionFlow.value.recommendedLimitKmh
+        } else {
+            currentPreferences.speedLimitKmh
         }
     }
 
@@ -350,6 +389,12 @@ class SpeedTrackingService : Service() {
 
         private val _tripStatsFlow = MutableStateFlow(TripStats())
         val tripStatsFlow: StateFlow<TripStats> = _tripStatsFlow.asStateFlow()
+
+        private val _cameraDetectionFlow = MutableStateFlow(CameraDetectionResult())
+        val cameraDetectionFlow: StateFlow<CameraDetectionResult> = _cameraDetectionFlow.asStateFlow()
+
+        private val _effectiveLimitFlow = MutableStateFlow(80)
+        val effectiveLimitFlow: StateFlow<Int> = _effectiveLimitFlow.asStateFlow()
 
         fun startService(context: Context) {
             val intent = Intent(context, SpeedTrackingService::class.java).apply {

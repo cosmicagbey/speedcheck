@@ -34,6 +34,13 @@ data class UserPreferences(
     /** Whether background monitoring service is currently toggled on by user. */
     val monitoringEnabled: Boolean = false,
 
+    /**
+     * Whether Auto-Detect speed limit mode is active.
+     * When enabled, the app automatically detects the driver's location, heading,
+     * and approaching speed camera zones (N1, Fiesta Royale, Baah Jct, Kawukudi, Kanda, Borteyman).
+     */
+    val autoDetectSpeedLimit: Boolean = true,
+
     /** Whether to automatically detect vehicle motion (~15-20 km/h) and enter active monitoring. */
     val autoDetectVehicleMovement: Boolean = true,
 

@@ -56,7 +56,8 @@ class NotificationHelper(private val context: Context) {
         speedKmh: Float,
         limitKmh: Int,
         monitoringState: MonitoringState,
-        alertStatus: SpeedAlertStatus
+        alertStatus: SpeedAlertStatus,
+        cameraZoneName: String? = null
     ): Notification {
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -78,25 +79,27 @@ class NotificationHelper(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val zoneTag = if (!cameraZoneName.isNullOrEmpty()) " • $cameraZoneName" else ""
+
         val (title, text) = when (monitoringState) {
             MonitoringState.STOPPED -> "SpeedCheck Inactive" to "Tap to start speed monitoring"
             MonitoringState.WAITING_FOR_MOVEMENT -> {
-                "SpeedCheck: Waiting for Movement" to "Auto-activates when vehicle speed exceeds ~18 km/h • Limit: $limitKmh km/h"
+                "SpeedCheck: Waiting for Movement" to "Auto-activates when driving • Limit: $limitKmh km/h$zoneTag"
             }
             MonitoringState.PAUSED_STATIONARY -> {
-                "SpeedCheck: Paused (Vehicle Stopped)" to "Conserving battery • Limit: $limitKmh km/h"
+                "SpeedCheck: Paused (Vehicle Stopped)" to "Conserving battery • Limit: $limitKmh km/h$zoneTag"
             }
             MonitoringState.ACTIVE_MONITORING -> {
                 val roundedSpeed = speedKmh.toInt()
                 when (alertStatus) {
                     SpeedAlertStatus.EXCEEDED -> {
-                        "⚠️ OVER LIMIT: $roundedSpeed km/h!" to "Speed limit is $limitKmh km/h. Please slow down!"
+                        "⚠️ OVER LIMIT: $roundedSpeed km/h!" to "Limit: $limitKmh km/h • Slow down!$zoneTag"
                     }
                     SpeedAlertStatus.APPROACHING -> {
-                        "⚠️ Approaching: $roundedSpeed km/h" to "Target limit: $limitKmh km/h"
+                        "⚠️ Approaching: $roundedSpeed km/h" to "Target limit: $limitKmh km/h$zoneTag"
                     }
                     SpeedAlertStatus.NORMAL -> {
-                        "Current Speed: $roundedSpeed km/h" to "Set limit: $limitKmh km/h • Safe"
+                        "Current Speed: $roundedSpeed km/h" to "Limit: $limitKmh km/h • Safe$zoneTag"
                     }
                 }
             }
@@ -123,9 +126,10 @@ class NotificationHelper(private val context: Context) {
         speedKmh: Float,
         limitKmh: Int,
         monitoringState: MonitoringState,
-        alertStatus: SpeedAlertStatus
+        alertStatus: SpeedAlertStatus,
+        cameraZoneName: String? = null
     ) {
-        val notification = buildForegroundNotification(speedKmh, limitKmh, monitoringState, alertStatus)
+        val notification = buildForegroundNotification(speedKmh, limitKmh, monitoringState, alertStatus, cameraZoneName)
         notificationManager.notify(NOTIFICATION_ID_FOREGROUND, notification)
     }
 

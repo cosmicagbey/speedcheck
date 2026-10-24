@@ -22,8 +22,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
@@ -41,6 +43,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -60,15 +63,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.speedcheck.data.PreferencesRepository
 import com.example.speedcheck.data.UserPreferences
+import com.example.speedcheck.service.SpeedCameraDetector
 import com.example.speedcheck.service.TextToSpeechManager
+import com.example.speedcheck.theme.AccentCyan
 import com.example.speedcheck.theme.GhanaGold
 import com.example.speedcheck.theme.SpeedSafeGreen
 import com.example.speedcheck.ui.components.BatteryOptimizationCard
 import kotlinx.coroutines.launch
 
 /**
- * Settings Screen allows customizing speed limits, voice alerts,
- * vehicle detection, and reviewing Ghana road safety speed guides.
+ * Settings Screen allows customizing speed limits, Auto-Detect camera modes,
+ * voice alerts, vehicle motion detection, and reviewing Ghana road safety speed guides.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -114,8 +119,87 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            // SECTION 1: Speed Limit Settings
-            SettingsSectionHeader(title = "SPEED LIMIT SETTING", icon = Icons.Default.Speed)
+            // SECTION 1: Auto-Detect Speed Limits & Camera Zones
+            SettingsSectionHeader(title = "LOCATION & CAMERA AUTO-DETECT", icon = Icons.Default.Radar)
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (userPreferences.autoDetectSpeedLimit)
+                        AccentCyan.copy(alpha = 0.12f)
+                    else
+                        MaterialTheme.colorScheme.surface
+                ),
+                border = if (userPreferences.autoDetectSpeedLimit)
+                    androidx.compose.foundation.BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+                else null
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Auto-Detect Speed Limit",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = "Picks your GPS location & travel heading to find the speed limit for your area and approaching cameras.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
+                        }
+                        Switch(
+                            checked = userPreferences.autoDetectSpeedLimit,
+                            onCheckedChange = { scope.launch { repository.updateAutoDetectSpeedLimit(it) } },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.Black,
+                                checkedTrackColor = AccentCyan
+                            )
+                        )
+                    }
+
+                    if (userPreferences.autoDetectSpeedLimit) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Enforced Ghana Speed Camera Corridors:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GhanaGold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        SpeedCameraDetector.GHANA_SPEED_CAMERAS.forEach { camera ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "• ${camera.name}",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "${camera.speedLimitKmh} km/h",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SpeedSafeGreen
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // SECTION 2: Manual Speed Limit Settings
+            SettingsSectionHeader(title = "MANUAL SPEED LIMIT SETTING", icon = Icons.Default.Speed)
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -123,18 +207,19 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Active Speed Limit: ${userPreferences.speedLimitKmh} km/h",
+                        text = "Fallback / Manual Limit: ${userPreferences.speedLimitKmh} km/h",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
+                        fontSize = 15.sp
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-
                     Text(
-                        text = "Quick Presets (Ghana Standard):",
-                        fontSize = 13.sp,
+                        text = if (userPreferences.autoDetectSpeedLimit)
+                            "Used when outside camera zones or if Auto-Detect is turned off."
+                        else
+                            "Currently used for all speed alerts.",
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -155,7 +240,7 @@ fun SettingsScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -178,21 +263,12 @@ fun SettingsScreen(
                             singleLine = true
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "Early approaching warning will alert at: ${userPreferences.speedLimitKmh - userPreferences.approachingOffsetKmh} km/h",
-                        fontSize = 13.sp,
-                        color = GhanaGold,
-                        fontWeight = FontWeight.SemiBold
-                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // SECTION 2: Approaching Warning Configuration
+            // SECTION 3: Approaching Warning Configuration
             SettingsSectionHeader(title = "EARLY APPROACHING ALERT", icon = Icons.Default.NotificationsActive)
 
             Card(
@@ -238,7 +314,7 @@ fun SettingsScreen(
                             steps = 6
                         )
                         Text(
-                            text = "Voice message: \"You are approaching ${userPreferences.speedLimitKmh} kilometers per hour.\"",
+                            text = "Example: For 30 km/h limit, notifies at 25 km/h: \"You are approaching 30 kilometers per hour.\"",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -248,7 +324,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // SECTION 3: Voice Alerts Engine
+            // SECTION 4: Voice Alerts & Text-to-Speech
             SettingsSectionHeader(title = "VOICE ALERTS & TEXT-TO-SPEECH", icon = Icons.Default.RecordVoiceOver)
 
             Card(
@@ -267,7 +343,7 @@ fun SettingsScreen(
                                 fontSize = 15.sp
                             )
                             Text(
-                                text = "High-priority spoken warnings over road noise",
+                                text = "Spoken camera announcements and speed warnings",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                             )
@@ -337,7 +413,7 @@ fun SettingsScreen(
                                     rate = userPreferences.speechRate,
                                     pitch = userPreferences.speechPitch
                                 )
-                                ttsManager.speak("You are approaching ${userPreferences.speedLimitKmh} kilometers per hour. Slow down, current speed is above your limit.")
+                                ttsManager.speak("Speed camera zone ahead on N1 Highway Fiesta Royale. Speed limit is 80 kilometers per hour. You are approaching 80 kilometers per hour. Slow down, current speed is above your limit.")
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -345,64 +421,6 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Test Voice Alerts Now")
                         }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // SECTION 4: Background & Auto-Detect Operations
-            SettingsSectionHeader(title = "AUTOMATION & VEHICLE DETECTION", icon = Icons.Default.Speed)
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Auto-Detect Vehicle Movement",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                            Text(
-                                text = "Starts active tracking when speed exceeds ~18 km/h. Pauses when vehicle stops to save battery.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                        }
-                        Switch(
-                            checked = userPreferences.autoDetectVehicleMovement,
-                            onCheckedChange = { scope.launch { repository.updateAutoDetectMovement(it) } }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Resume on Phone Restart",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                            Text(
-                                text = "Automatically restart background monitoring when the phone powers on.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                        }
-                        Switch(
-                            checked = userPreferences.autoStartOnBoot,
-                            onCheckedChange = { scope.launch { repository.updateAutoStartOnBoot(it) } }
-                        )
                     }
                 }
             }
@@ -424,7 +442,7 @@ fun SettingsScreen(
                 ),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Ghana MTTD Speed Camera Guide", fontWeight = FontWeight.Bold)
             }

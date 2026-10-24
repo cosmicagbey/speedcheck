@@ -7,9 +7,12 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Build Debug APK
+    name: Build Debug APK & Release
     runs-on: ubuntu-latest
 
     steps:
@@ -36,9 +39,47 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
+      - name: Prepare APK for Release
+        run: cp app/build/outputs/apk/debug/app-debug.apk SpeedCheck.apk
+
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SpeedCheck-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: SpeedCheck.apk
           retention-days: 14
+
+      - name: Create or Update GitHub Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: "SpeedCheck v1.0.0 (Ghana Speed Camera Assistant)"
+          body: |
+            ## 🇬🇭 SpeedCheck v1.0.0 - Test Build
+
+            Welcome to the test build of **SpeedCheck**! Download the `.apk` file below to install directly on your Android phone.
+
+            ### 🚀 Highlights & Features:
+            * **📷 Auto-Detect Speed Cameras**:
+              * **Borteyman Sports Facility T-Junction** (80 km/h)
+              * **N1 Highway near Fiesta Royale Hotel** (80 km/h)
+              * **N1 Highway near Baah Junction / Bar Junction** (80 km/h)
+              * **Kawukudi (Obasanjo Highway)** (50 km/h)
+              * **Kanda Highway** (50 km/h)
+            * **🗣️ Spoken Voice Alerts (TTS)**:
+              * Camera ahead voice prompt: *"Speed camera zone ahead on [Zone Name]. Speed limit is [X] km/h."*
+              * Early warning approaching alert (notifies 5 km/h before target limit).
+              * Immediate over-speed alert: *"Slow down. Current speed is above your limit."*
+              * Anti-spam alert repeat cooldown (10–30s).
+            * **🔋 Silent Background Operation**: Works with the screen locked or in your pocket. Auto-pauses when stationary to conserve battery.
+            * **🎛️ Manual or Auto-Detect Modes**: Switch between automatic GPS speed limits or custom manual limits (30, 50, 80, 100, 120 km/h).
+            * **📊 Driving Stats**: Live speedometer, maximum speed, average speed, and trip distance.
+
+            ### 📲 How to Install:
+            1. Download **`SpeedCheck.apk`** below on your Android device.
+            2. Tap the downloaded file to install (allow "Install from unknown sources" if prompted).
+            3. Open **SpeedCheck**, grant Location and Notification permissions, and tap **START MONITORING**!
+          files: SpeedCheck.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

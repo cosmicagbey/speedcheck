@@ -121,3 +121,18 @@ The output APK will be generated at `app/build/outputs/apk/debug/app-debug.apk`.
 2. **Accra-Tema Motorway & Borteyman**: 80–100 km/h cameras active for overspeeding enforcement.
 3. **Kawukudi & Kanda Highways**: Strictly 50 km/h urban arterial enforcement.
 4. **School & Hospital Zones**: Strictly 30 km/h.
+
+---
+
+## 🔒 Privacy & Data Policy
+
+SpeedCheck does **not** track personal identifiers or sell data. No advertising identifier (AAID) is used, and no location data ever leaves your device.  
+Read the full document: **[Privacy Policy](PRIVACY_POLICY.md)**.
+
+---
+
+## 🚀 Google Play Closed Testing
+
+For Google Play Console tracks:
+* **Android App Bundle (.aab)**: Built automatically by `./gradlew bundleRelease` and attached to every GitHub Release.
+* **Upload Keystore**: Located at `keystore/upload-keystore.jks` (alias: `speedcheck`).

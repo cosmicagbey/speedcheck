@@ -36,17 +36,21 @@ jobs:
       - name: Run Unit Tests
         run: ./gradlew test
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build Debug APK and Release App Bundle (AAB)
+        run: ./gradlew assembleDebug bundleRelease --stacktrace
 
-      - name: Prepare APK for Release
-        run: cp app/build/outputs/apk/debug/app-debug.apk SpeedCheck.apk
+      - name: Prepare Files for Release
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk SpeedCheck.apk
+          cp app/build/outputs/bundle/release/app-release.aab SpeedCheck.aab
 
-      - name: Upload Debug APK Artifact
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: SpeedCheck-debug-apk
-          path: SpeedCheck.apk
+          name: SpeedCheck-build-artifacts
+          path: |
+            SpeedCheck.apk
+            SpeedCheck.aab
           retention-days: 14
 
       - name: Create or Update GitHub Release
@@ -54,11 +58,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.0
-          name: "SpeedCheck v1.0.0 (Ghana Speed Camera Assistant)"
+          name: "SpeedCheck v1.0.0 (Closed Testing AAB & Direct APK)"
           body: |
-            ## 🇬🇭 SpeedCheck v1.0.0 - Test Build
+            ## 🇬🇭 SpeedCheck v1.0.0 - Closed Testing & Test Build
 
-            Welcome to the test build of **SpeedCheck**! Download the `.apk` file below to install directly on your Android phone.
+            This release contains both the **`SpeedCheck.aab`** (Android App Bundle for Google Play Console Closed Testing) and the **`SpeedCheck.apk`** (for direct phone installation).
+
+            ### 📦 Download Files:
+            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing**. Signed with the release upload keystore.
+            * **`SpeedCheck.apk`**: Download to install and test directly on any Android phone without going through the Play Store.
 
             ### 🚀 Highlights & Features:
             * **📷 Auto-Detect Speed Cameras**:
@@ -75,11 +83,19 @@ jobs:
             * **🔋 Silent Background Operation**: Works with the screen locked or in your pocket. Auto-pauses when stationary to conserve battery.
             * **🎛️ Manual or Auto-Detect Modes**: Switch between automatic GPS speed limits or custom manual limits (30, 50, 80, 100, 120 km/h).
             * **📊 Driving Stats**: Live speedometer, maximum speed, average speed, and trip distance.
+            * **🔒 Privacy & Policy**: In-app Privacy Policy dialog and zero tracking/ad IDs.
 
-            ### 📲 How to Install:
-            1. Download **`SpeedCheck.apk`** below on your Android device.
+            ### 📲 How to Install the APK Directly:
+            1. Download **`SpeedCheck.apk`** on your Android device.
             2. Tap the downloaded file to install (allow "Install from unknown sources" if prompted).
             3. Open **SpeedCheck**, grant Location and Notification permissions, and tap **START MONITORING**!
-          files: SpeedCheck.apk
+
+            ### 🌐 Google Play Console Closed Testing Instructions:
+            1. Download **`SpeedCheck.aab`**.
+            2. Open Google Play Console > Select **SpeedCheck** > **Closed testing**.
+            3. Click **Create new release**, drop **`SpeedCheck.aab`** into App bundles, enter release notes, and rollout!
+          files: |
+            SpeedCheck.apk
+            SpeedCheck.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

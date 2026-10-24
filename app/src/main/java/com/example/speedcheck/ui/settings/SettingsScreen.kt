@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.RecordVoiceOver
@@ -91,6 +92,7 @@ fun SettingsScreen(
         mutableStateOf(userPreferences.speedLimitKmh.toString())
     }
     var showGhanaGuideDialog by remember { mutableStateOf(false) }
+    var showPrivacyPolicyDialog by remember { mutableStateOf(false) }
 
     val presetLimits = listOf(30, 50, 80, 100, 120)
     val cooldownOptions = listOf(10, 15, 20, 30)
@@ -447,12 +449,28 @@ fun SettingsScreen(
                 Text("Ghana MTTD Speed Camera Guide", fontWeight = FontWeight.Bold)
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // SECTION 7: Privacy Policy
+            OutlinedButton(
+                onClick = { showPrivacyPolicyDialog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Privacy Policy")
+            }
+
             Spacer(modifier = Modifier.height(28.dp))
         }
     }
 
     if (showGhanaGuideDialog) {
         GhanaRoadSafetyGuideDialog(onDismiss = { showGhanaGuideDialog = false })
+    }
+
+    if (showPrivacyPolicyDialog) {
+        PrivacyPolicyDialog(onDismiss = { showPrivacyPolicyDialog = false })
     }
 }
 

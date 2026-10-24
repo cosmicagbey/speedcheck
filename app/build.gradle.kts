@@ -15,10 +15,26 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreFile = file("../keystore/upload-keystore.jks")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "speedcheckpass"
+                keyAlias = System.getenv("KEY_ALIAS") ?: "speedcheck"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "speedcheckpass"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            val keystoreFile = file("../keystore/upload-keystore.jks")
+            if (keystoreFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {

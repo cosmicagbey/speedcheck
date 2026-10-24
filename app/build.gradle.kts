@@ -5,10 +5,10 @@ plugins {
 }
 
 android {
-    namespace = "com.example.speedcheck"
+    namespace = "com.speedcheck.android"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.example.speedcheck"
+        applicationId = "com.speedcheck.android"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

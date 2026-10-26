@@ -57,18 +57,24 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: "SpeedCheck v1.0.0 (Closed Testing AAB & Direct APK)"
+          tag_name: v1.0.1
+          name: "SpeedCheck v1.0.1 (Closed Testing AAB & Direct APK)"
           body: |
-            ## 🇬🇭 SpeedCheck v1.0.0 - Closed Testing & Test Build
+            ## 🇬🇭 SpeedCheck v1.0.1 - Closed Testing & Test Build
 
             This release contains both the **`SpeedCheck.aab`** (Android App Bundle for Google Play Console Closed Testing) and the **`SpeedCheck.apk`** (for direct phone installation).
 
             ### 📦 Download Files:
-            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing**. Signed with the release upload keystore.
+            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing** (Version 1.0.1, VersionCode 2). Signed with the release upload keystore.
             * **`SpeedCheck.apk`**: Download to install and test directly on any Android phone without going through the Play Store.
 
-            ### 🚀 Highlights & Features:
+            ### 🚀 What's New in v1.0.1:
+            * **🗣️ Realistic Voice Assistant**:
+              * Automatically connects to Google Speech Services (`com.google.android.tts`) Neural/WaveNet voices.
+              * Natural voice ranking (prioritizes high-quality offline models without robotic pitch warping).
+              * Audio ducking: Music / podcasts smoothly dim during voice alerts and restore immediately.
+              * Added quick shortcut to open Device TTS Settings to install high-definition offline voice packs.
+            * **🌓 Dark / Light Mode Switcher**: Added quick one-tap toggle icon in the top right corner of the Settings screen.
             * **📷 Auto-Detect Speed Cameras**:
               * **Borteyman Sports Facility T-Junction** (80 km/h)
               * **N1 Highway near Fiesta Royale Hotel** (80 km/h)

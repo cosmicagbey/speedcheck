@@ -37,6 +37,7 @@ class PreferencesRepository private constructor(private val context: Context) {
         val AUTO_DETECT_SPEED_LIMIT = booleanPreferencesKey("auto_detect_speed_limit")
         val AUTO_START_ON_BOOT = booleanPreferencesKey("auto_start_on_boot")
         val HIGH_CONTRAST_MODE = booleanPreferencesKey("high_contrast_mode")
+        val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
     }
 
     val userPreferencesFlow: Flow<UserPreferences> = context.dataStore.data
@@ -61,7 +62,8 @@ class PreferencesRepository private constructor(private val context: Context) {
                 autoDetectSpeedLimit = preferences[PreferencesKeys.AUTO_DETECT_SPEED_LIMIT] ?: true,
                 autoDetectVehicleMovement = preferences[PreferencesKeys.AUTO_DETECT_MOVEMENT] ?: true,
                 autoStartOnBoot = preferences[PreferencesKeys.AUTO_START_ON_BOOT] ?: true,
-                highContrastMode = preferences[PreferencesKeys.HIGH_CONTRAST_MODE] ?: true
+                highContrastMode = preferences[PreferencesKeys.HIGH_CONTRAST_MODE] ?: true,
+                isDarkMode = preferences[PreferencesKeys.IS_DARK_MODE] ?: true
             )
         }
 
@@ -144,6 +146,12 @@ class PreferencesRepository private constructor(private val context: Context) {
     suspend fun updateHighContrastMode(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.HIGH_CONTRAST_MODE] = enabled
+        }
+    }
+
+    suspend fun updateDarkMode(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.IS_DARK_MODE] = enabled
         }
     }
 

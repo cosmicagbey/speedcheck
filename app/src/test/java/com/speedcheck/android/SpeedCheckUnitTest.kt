@@ -28,6 +28,7 @@ class SpeedCheckUnitTest {
         assertTrue(prefs.autoStartOnBoot)
         assertEquals("FEMALE", prefs.voiceGender)
         assertEquals(15, prefs.alertCooldownSeconds)
+        assertTrue(prefs.isDarkMode)
     }
 
     @Test

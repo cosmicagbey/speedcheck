@@ -48,5 +48,8 @@ data class UserPreferences(
     val autoStartOnBoot: Boolean = true,
 
     /** High contrast display mode for daylight/night driving. */
-    val highContrastMode: Boolean = true
+    val highContrastMode: Boolean = true,
+
+    /** Dark mode theme toggle (true = Dark, false = Light). Default is true for driving glare reduction. */
+    val isDarkMode: Boolean = true
 )

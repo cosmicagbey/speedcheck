@@ -1,5 +1,6 @@
 package com.speedcheck.android.ui.settings
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,11 +24,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.SettingsVoice
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -46,6 +50,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -104,6 +109,21 @@ fun SettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                repository.updateDarkMode(!userPreferences.isDarkMode)
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (userPreferences.isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = if (userPreferences.isDarkMode) "Switch to Light Mode" else "Switch to Dark Mode",
+                            tint = if (userPreferences.isDarkMode) GhanaGold else MaterialTheme.colorScheme.primary
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -415,13 +435,41 @@ fun SettingsScreen(
                                     rate = userPreferences.speechRate,
                                     pitch = userPreferences.speechPitch
                                 )
-                                ttsManager.speak("Speed camera zone ahead on N1 Highway Fiesta Royale. Speed limit is 80 kilometers per hour. You are approaching 80 kilometers per hour. Slow down, current speed is above your limit.")
+                                ttsManager.speak("Approaching 80 kilometers per hour. Caution, speed is over your limit. Please slow down.")
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Test Voice Alerts Now")
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Open System TTS settings to download Google's Neural high-quality voice packs
+                        TextButton(
+                            onClick = {
+                                try {
+                                    val intent = Intent("com.android.settings.TTS_SETTINGS")
+                                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    try {
+                                        val fallback = Intent(android.provider.Settings.ACTION_SETTINGS)
+                                        fallback.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        context.startActivity(fallback)
+                                    } catch (_: Exception) {}
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.SettingsVoice, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Device TTS & Neural Voice Settings",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
                 }

@@ -16,11 +16,7 @@ import com.speedcheck.android.ui.dashboard.DashboardScreen
 import com.speedcheck.android.ui.settings.SettingsScreen
 
 @Composable
-fun MainNavigation() {
-    val context = LocalContext.current
-    val repository = remember { PreferencesRepository.getInstance(context) }
-    val userPreferences by repository.userPreferencesFlow.collectAsState(initial = UserPreferences())
-
+fun MainNavigation(userPreferences: UserPreferences) {
     val backStack = rememberNavBackStack(Dashboard)
 
     NavDisplay(

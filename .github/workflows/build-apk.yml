@@ -53,26 +53,26 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.1
-          name: "SpeedCheck v1.0.1 (Google Play Closed Testing AAB)"
+          tag_name: v1.0.2
+          name: "SpeedCheck v1.0.2 (Google Play Closed Testing AAB)"
           body: |
-            ## 🇬🇭 SpeedCheck v1.0.1 - Google Play Release
+            ## 🇬🇭 SpeedCheck v1.0.2 - Google Play Release
 
             This release provides the official **`SpeedCheck.aab`** (Android App Bundle) signed with the release upload keystore for the **Google Play Console Closed Testing** track.
 
             ### 📦 Download Bundle:
-            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing** (Version `1.0.1`, Build `2`).
+            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing** (Version `1.0.2`, Build `3`).
 
-            ### 🚀 What's New:
+            ### 🚀 Resolved Google Play Console Checks in v1.0.2:
+            * **🛡️ DEX Code Optimization & R8 Obfuscation**: Enabled `isMinifyEnabled = true` with comprehensive ProGuard/R8 rules to meet Google Play's optimization and obfuscation thresholds.
+            * **📦 Fragment Dependency Updated**: Explicitly updated `androidx.fragment:fragment` from outdated `1.1.0` to modern `1.8.6` across the dependency graph.
+            * **📱 Full Android 15 Edge-to-Edge Compliance**:
+              * Configured transparent status & navigation bars in themes.
+              * Dynamic system bar contrast integration (`SystemBarStyle`) responding to Dark/Light mode in Compose.
             * **🗣️ Realistic Voice Assistant**:
-              * Automatically connects to Google Speech Services (`com.google.android.tts`) Neural/WaveNet voices.
-              * Natural voice ranking without robotic pitch distortion.
-              * Audio ducking: Music / podcasts smoothly dim during voice alerts and restore immediately.
-              * Added quick shortcut to open Device TTS Settings to install high-definition offline voice packs.
-            * **🌓 Dark / Light Mode Switcher**: Added quick one-tap toggle icon in the top right corner of the Settings screen.
-            * **📷 Auto-Detect Speed Cameras**:
-              * **Borteyman Sports Facility T-Junction** (80 km/h)
-              * **N1 Highway near Fiesta Royale Hotel** (80 km/h)
+              * Google Speech Services (`com.google.android.tts`) neural voices.
+              * Audio ducking for car radios/Spotify during alerts.
+            * **🌓 Dark / Light Mode Switcher**: Settings screen TopAppBar toggle.
               * **N1 Highway near Baah Junction / Bar Junction** (80 km/h)
               * **Kawukudi (Obasanjo Highway)** (50 km/h)
               * **Kanda Highway** (50 km/h)

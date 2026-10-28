@@ -107,6 +107,8 @@ class NotificationHelper(private val context: Context) {
 
         return NotificationCompat.Builder(context, CHANNEL_ID_TRACKING)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setColor(0xFF0B1B3D.toInt())
+            .setColorized(false)
             .setContentTitle(title)
             .setContentText(text)
             .setContentIntent(openAppPendingIntent)

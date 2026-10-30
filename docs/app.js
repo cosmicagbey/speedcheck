@@ -1,5 +1,6 @@
 /**
  * SpeedCheck Web (PWA) - Smart GPS Speed Monitor & MTTD Camera Radar for Ghana
+ * Highly accurate speed calculation, jitter-resistant filtering, and iOS permission handling.
  */
 
 // 1. Ghana MTTD Automated Speed Camera Zones
@@ -59,7 +60,9 @@ const GHANA_SPEED_CAMERAS = [
 // 2. Application State
 const state = {
   isMonitoring: false,
+  hasLocationPermission: localStorage.getItem('sc_has_location_perm') === 'true',
   currentSpeedKmh: 0,
+  smoothedSpeedKmh: 0,
   manualLimitKmh: parseInt(localStorage.getItem('sc_manual_limit') || '80', 10),
   autoDetectEnabled: localStorage.getItem('sc_auto_detect') !== 'false',
   voiceAlertsEnabled: localStorage.getItem('sc_voice_alerts') !== 'false',
@@ -67,6 +70,11 @@ const state = {
   alertCooldownSeconds: parseInt(localStorage.getItem('sc_cooldown') || '15', 10),
   approachingOffsetKmh: 5,
   isDarkMode: localStorage.getItem('sc_theme') !== 'light',
+
+  // Motion Detection (Normal walking/stationary vs Vehicle movement)
+  motionState: 'STOPPED', // 'STOPPED', 'WAITING_FOR_MOVEMENT', 'DRIVING'
+  consecutiveDrivingReadings: 0,
+  stationarySeconds: 0,
 
   // Live Location & Radar
   lastPosition: null,
@@ -170,7 +178,7 @@ function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
     state.isMovingTowardsCamera = false;
     state.lastAnnouncedCameraZoneId = null;
 
-    // Outside camera zones, smart default based on road speed (80 km/h highway vs 50 km/h urban)
+    // Outside camera zones, smart default based on vehicle speed
     state.effectiveLimitKmh = speedKmh >= 65 ? 80 : 50;
   }
 }
@@ -220,7 +228,7 @@ function speakVoice(text) {
   }
 }
 
-// Play silent chime or audio buffer on user interaction to unlock Safari Web Audio
+// Play silent chime on user interaction to unlock Safari Web Audio
 function unlockAudioContext() {
   try {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -257,7 +265,7 @@ function processSpeedAlerts(speedKmh, limitKmh) {
   }
 }
 
-// 7. Screen WakeLock (prevents screen lock while mounted on dashboard)
+// 7. Screen WakeLock (prevents screen lock while driving)
 async function requestWakeLock() {
   try {
     if ('wakeLock' in navigator) {
@@ -284,28 +292,92 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// 8. GPS Position Processing
+// 8. Jitter-Resistant GPS Speed & Vehicle Motion Evaluation
 function handlePositionUpdate(position) {
   const coords = position.coords;
-  let calculatedSpeed = 0;
 
-  // Use hardware GPS speed if provided (m/s -> km/h)
+  // Filter 1: Discard wildly inaccurate GPS readings (accuracy > 35 meters)
+  // This prevents cell-tower triangulation jumps from causing 100+ km/h spikes while stationary
+  if (coords.accuracy && coords.accuracy > 35) {
+    console.warn(`GPS accuracy low (${Math.round(coords.accuracy)}m) - filtering position`);
+    if (state.lastPosition === null) {
+      state.lastPosition = position;
+    }
+    return;
+  }
+
+  let rawCalculatedSpeed = 0;
+  const now = position.timestamp || Date.now();
+
+  // Priority 1: Hardware Doppler GPS Speed from device chip
   if (coords.speed !== null && !isNaN(coords.speed) && coords.speed >= 0) {
-    calculatedSpeed = coords.speed * 3.6;
+    rawCalculatedSpeed = coords.speed * 3.6;
   } else if (state.lastPosition) {
-    // Fallback: Haversine distance over delta time
+    // Priority 2: Fallback delta-distance calculation with safeguards
     const prev = state.lastPosition;
-    const deltaSeconds = (position.timestamp - prev.timestamp) / 1000;
-    if (deltaSeconds > 0) {
-      const dist = calculateDistanceMeters(prev.coords.latitude, prev.coords.longitude, coords.latitude, coords.longitude);
-      calculatedSpeed = (dist / deltaSeconds) * 3.6;
+    const prevTime = prev.timestamp || now;
+    const deltaSeconds = (now - prevTime) / 1000;
+
+    // Reject division by tiny time intervals (< 1.0 second) to prevent math spikes
+    if (deltaSeconds >= 1.0) {
+      const distMeters = calculateDistanceMeters(
+        prev.coords.latitude,
+        prev.coords.longitude,
+        coords.latitude,
+        coords.longitude
+      );
+
+      // Ignore micro-drift under 3.5 meters (natural GPS wobble)
+      if (distMeters >= 3.5) {
+        const unconstrainedSpeed = (distMeters / deltaSeconds) * 3.6;
+
+        // Physical Acceleration Sanity Check:
+        // A normal vehicle cannot accelerate faster than ~30 km/h per second.
+        // Clamping prevents GPS teleport jumps from registering as 135 km/h.
+        const maxPermittedSpeed = state.currentSpeedKmh + (30 * deltaSeconds);
+        rawCalculatedSpeed = Math.min(unconstrainedSpeed, maxPermittedSpeed);
+      }
+    } else {
+      // Time delta too small, carry forward current speed without sudden spikes
+      rawCalculatedSpeed = state.currentSpeedKmh;
     }
   }
 
-  state.currentSpeedKmh = Math.max(0, calculatedSpeed);
+  // Filter 2: Deadband for Stationary / Walking
+  // Speeds under 6 km/h are considered stationary (eliminates walking/pocket wobble)
+  if (rawCalculatedSpeed < 6.0) {
+    rawCalculatedSpeed = 0;
+  }
 
-  // Update trip stats
-  if (state.lastPosition) {
+  // Filter 3: Exponential Moving Average Smoothing
+  // Produces a smooth gauge needle and removes jitter
+  if (rawCalculatedSpeed === 0) {
+    state.smoothedSpeedKmh = 0;
+  } else if (state.smoothedSpeedKmh === 0) {
+    state.smoothedSpeedKmh = rawCalculatedSpeed;
+  } else {
+    state.smoothedSpeedKmh = (0.45 * rawCalculatedSpeed) + (0.55 * state.smoothedSpeedKmh);
+  }
+
+  state.currentSpeedKmh = Math.max(0, state.smoothedSpeedKmh);
+
+  // Motion State & Vehicle Detection:
+  // Requires consistent speed >= 18 km/h to confirm vehicle driving
+  if (state.currentSpeedKmh >= 18) {
+    state.consecutiveDrivingReadings++;
+    state.stationarySeconds = 0;
+    if (state.consecutiveDrivingReadings >= 2) {
+      state.motionState = 'DRIVING';
+    }
+  } else if (state.currentSpeedKmh >= 6) {
+    state.motionState = 'MANEUVERING';
+  } else {
+    state.consecutiveDrivingReadings = 0;
+    state.motionState = 'STOPPED';
+  }
+
+  // Update Trip Stats only during genuine driving movement
+  if (state.lastPosition && state.currentSpeedKmh >= 6) {
     const dKm = calculateDistanceMeters(
       state.lastPosition.coords.latitude,
       state.lastPosition.coords.longitude,
@@ -318,7 +390,8 @@ function handlePositionUpdate(position) {
   if (state.currentSpeedKmh > state.trip.maxSpeedKmh) {
     state.trip.maxSpeedKmh = state.currentSpeedKmh;
   }
-  if (state.currentSpeedKmh > 3) {
+
+  if (state.currentSpeedKmh >= 6) {
     state.trip.speedSum += state.currentSpeedKmh;
     state.trip.speedReadingsCount++;
   }
@@ -336,14 +409,68 @@ function handlePositionUpdate(position) {
 function handlePositionError(error) {
   console.warn("Geolocation error:", error);
   const statusEl = document.getElementById('statusText');
-  if (statusEl) {
-    statusEl.textContent = error.code === 1 ? "Location Denied" : "GPS Signal Lost";
+
+  if (error.code === 1) { // PERMISSION_DENIED
+    if (statusEl) statusEl.textContent = "Location Denied";
+    state.hasLocationPermission = false;
+    localStorage.setItem('sc_has_location_perm', 'false');
+
+    // Show troubleshooting instructions
+    const deniedCard = document.getElementById('permissionDeniedCard');
+    if (deniedCard) deniedCard.style.display = 'block';
+    openModal('permissionModal');
+  } else {
+    if (statusEl) statusEl.textContent = "Acquiring GPS Signal...";
   }
 }
 
-// 9. Start / Stop Speed Monitoring
+// 9. Interactive Permission Flow & Monitoring Control
+function requestLocationAndStart() {
+  unlockAudioContext();
+
+  if (!navigator.geolocation) {
+    alert("Geolocation is not supported by your browser.");
+    return;
+  }
+
+  // Request high-accuracy initial fix to trigger browser permission dialog
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      // Permission granted!
+      state.hasLocationPermission = true;
+      localStorage.setItem('sc_has_location_perm', 'true');
+      closeModal('permissionModal');
+      const deniedCard = document.getElementById('permissionDeniedCard');
+      if (deniedCard) deniedCard.style.display = 'none';
+
+      actuallyStartMonitoring();
+    },
+    (err) => {
+      handlePositionError(err);
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 12000
+    }
+  );
+}
+
 function startMonitoring() {
   unlockAudioContext();
+
+  // If permission has never been granted or was blocked, open explanatory dialog first
+  if (!state.hasLocationPermission) {
+    const deniedCard = document.getElementById('permissionDeniedCard');
+    if (deniedCard) deniedCard.style.display = 'none';
+    openModal('permissionModal');
+    return;
+  }
+
+  actuallyStartMonitoring();
+}
+
+function actuallyStartMonitoring() {
   requestWakeLock();
 
   state.isMonitoring = true;
@@ -352,6 +479,9 @@ function startMonitoring() {
   state.trip.speedSum = 0;
   state.trip.speedReadingsCount = 0;
   state.trip.distanceKm = 0;
+  state.currentSpeedKmh = 0;
+  state.smoothedSpeedKmh = 0;
+  state.motionState = 'STOPPED';
 
   if ('geolocation' in navigator) {
     state.watchId = navigator.geolocation.watchPosition(
@@ -363,8 +493,6 @@ function startMonitoring() {
         timeout: 10000
       }
     );
-  } else {
-    alert("Geolocation is not supported by your browser.");
   }
 
   speakVoice(`SpeedCheck active. Limit set to ${state.effectiveLimitKmh} kilometers per hour.`);
@@ -380,9 +508,11 @@ function stopMonitoring() {
 
   state.isMonitoring = false;
   state.currentSpeedKmh = 0;
+  state.smoothedSpeedKmh = 0;
   state.activeZone = null;
   state.distanceToCameraMeters = null;
   state.lastPosition = null;
+  state.motionState = 'STOPPED';
 
   updateUI();
 }
@@ -396,23 +526,40 @@ function updateUI() {
   const speedNumberEl = document.getElementById('speedNumber');
   if (speedNumberEl) speedNumberEl.textContent = speed;
 
-  // Gauge Arc Progress (stroke-dasharray = 440)
+  // Motion State Tag
+  const motionTagEl = document.getElementById('speedMotionTag');
+  if (motionTagEl) {
+    if (!state.isMonitoring) {
+      motionTagEl.textContent = "STOPPED";
+      motionTagEl.className = "speed-motion-tag";
+    } else if (state.motionState === 'DRIVING') {
+      motionTagEl.textContent = "VEHICLE DRIVING";
+      motionTagEl.className = "speed-motion-tag driving";
+    } else if (state.motionState === 'MANEUVERING') {
+      motionTagEl.textContent = "MANEUVERING";
+      motionTagEl.className = "speed-motion-tag";
+    } else {
+      motionTagEl.textContent = "VEHICLE STOPPED";
+      motionTagEl.className = "speed-motion-tag";
+    }
+  }
+
+  // Gauge Arc Progress (stroke-dasharray = 330)
   const maxDisplaySpeed = 160;
   const ratio = Math.min(1, speed / maxDisplaySpeed);
-  const offset = 440 - (ratio * 440);
+  const offset = 330 - (ratio * 330);
   const gaugeEl = document.getElementById('gaugeProgress');
 
   // Status and Gauge Color States
   const badgeEl = document.getElementById('statusBadge');
-  const badgeDot = document.getElementById('statusDot');
   const badgeText = document.getElementById('statusText');
 
   let alertState = 'normal';
   const approachingThreshold = Math.max(1, limit - state.approachingOffsetKmh);
 
-  if (speed >= limit) {
+  if (speed >= limit && state.isMonitoring) {
     alertState = 'exceeded';
-  } else if (speed >= approachingThreshold) {
+  } else if (speed >= approachingThreshold && state.isMonitoring) {
     alertState = 'approaching';
   }
 
@@ -443,7 +590,7 @@ function updateUI() {
       badgeText.textContent = `Approaching Limit (${speed} km/h)`;
     } else {
       badgeEl.classList.add('active');
-      badgeText.textContent = "Monitoring Active";
+      badgeText.textContent = state.motionState === 'DRIVING' ? "Monitoring Active (Driving)" : "Monitoring Active";
     }
   }
 
@@ -537,6 +684,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // Apply saved theme
   document.documentElement.setAttribute('data-theme', state.isDarkMode ? 'dark' : 'light');
 
+  // Check if browser permission query is supported
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+      if (result.state === 'granted') {
+        state.hasLocationPermission = true;
+        localStorage.setItem('sc_has_location_perm', 'true');
+      } else if (result.state === 'denied') {
+        state.hasLocationPermission = false;
+        localStorage.setItem('sc_has_location_perm', 'false');
+      }
+    }).catch(() => {});
+  }
+
   // Main Action Button (Start / Stop)
   const mainBtn = document.getElementById('mainActionBtn');
   if (mainBtn) {
@@ -546,6 +706,21 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         startMonitoring();
       }
+    });
+  }
+
+  // Permission Modal Buttons
+  const grantBtn = document.getElementById('grantPermissionBtn');
+  if (grantBtn) {
+    grantBtn.addEventListener('click', () => {
+      requestLocationAndStart();
+    });
+  }
+
+  const retryBtn = document.getElementById('retryPermissionBtn');
+  if (retryBtn) {
+    retryBtn.addEventListener('click', () => {
+      requestLocationAndStart();
     });
   }
 

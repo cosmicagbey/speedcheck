@@ -65,16 +65,17 @@
 
     <!-- Speedometer Gauge Area -->
     <div class="speedometer-container">
-      <svg class="gauge-svg" viewBox="0 0 240 180">
-        <!-- Background Track Arc -->
-        <path class="gauge-track" d="M 30 150 A 90 90 0 1 1 210 150" />
+      <svg class="gauge-svg" viewBox="0 0 280 180">
+        <!-- Background Track Arc (Radius 105, Path length ~330) -->
+        <path class="gauge-track" d="M 35 155 A 105 105 0 1 1 245 155" />
         <!-- Progress Arc -->
-        <path id="gaugeProgress" class="gauge-progress" d="M 30 150 A 90 90 0 1 1 210 150" />
+        <path id="gaugeProgress" class="gauge-progress" d="M 35 155 A 105 105 0 1 1 245 155" />
       </svg>
 
       <div class="speed-digital-display">
         <span id="speedNumber" class="speed-number">0</span>
         <span class="speed-unit">KM/H</span>
+        <span id="speedMotionTag" class="speed-motion-tag">STOPPED</span>
         
         <div class="effective-limit-badge" title="Active Speed Limit">
           <span class="limit-pill" id="effectiveLimitNumber">80</span>
@@ -224,6 +225,42 @@
         <p>All core detection and voice algorithms function entirely offline once cached.</p>
         
         <button class="modal-btn primary" data-close-modal="privacyModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GPS Permission & Audio Activation Modal -->
+  <div id="permissionModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Enable GPS & Driving Alerts</h2>
+        <button class="close-btn" data-close-modal="permissionModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="permission-icon-circle">📍</div>
+        <p class="permission-text">
+          SpeedCheck requires <strong>GPS Location</strong> access to measure your driving speed in real-time and alert you before you reach MTTD speed camera traps.
+          <br><br>
+          🔒 <strong>100% Private</strong>: Your GPS coordinates stay strictly on your phone and are never sent to any server.
+        </p>
+
+        <button id="grantPermissionBtn" class="modal-btn primary" style="font-size: 15px; padding: 14px;">
+          Allow GPS & Start Monitoring
+        </button>
+
+        <!-- Troubleshooting callout if Safari or Chrome blocks location -->
+        <div id="permissionDeniedCard" class="permission-help-card" style="display: none;">
+          <strong>⚠️ Location Permission is Blocked</strong>
+          <p style="margin-top: 4px;">To enable location in your browser:</p>
+          <ol>
+            <li><strong>On iPhone Safari</strong>: Tap the <strong>aA</strong> icon in the address bar > <strong>Website Settings</strong> > <strong>Location</strong> > Choose <strong>Allow</strong>.</li>
+            <li><strong>In iOS Settings</strong>: Go to <strong>Settings</strong> > <strong>Privacy & Security</strong> > <strong>Location Services</strong> > <strong>Safari Websites</strong> > Select <strong>While Using the App</strong> and toggle <strong>Precise Location</strong> ON.</li>
+            <li><strong>On Chrome / Android</strong>: Tap the lock icon in the address bar > <strong>Permissions</strong> > <strong>Location</strong> > <strong>Allow</strong>.</li>
+          </ol>
+          <button id="retryPermissionBtn" class="modal-btn" style="margin-top: 8px;">
+            🔄 Retry After Enabling
+          </button>
+        </div>
       </div>
     </div>
   </div>

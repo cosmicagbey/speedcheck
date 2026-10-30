@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SpeedCheck — Smart Speed Monitor & Camera Radar for Ghana</title>
+  
+  <!-- PWA & Mobile Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <meta name="theme-color" content="#0B1B3D">
+  
+  <!-- iOS Safari Web App Specifics -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SpeedCheck">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand-row">
+        <img src="favicon.png" alt="SpeedCheck Logo" class="app-logo">
+        <div class="brand-text">
+          <h1>SpeedCheck 🇬🇭</h1>
+          <div class="brand-subtitle">Smart Speed Assistant</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="muteBtn" class="icon-btn" title="Toggle Voice Alerts">🔊</button>
+        <button id="themeBtn" class="icon-btn" title="Toggle Dark/Light Mode">☀️</button>
+        <button id="settingsBtn" class="icon-btn" title="Settings">⚙️</button>
+      </div>
+    </header>
+
+    <!-- Status Badge -->
+    <div class="status-badge-container">
+      <div id="statusBadge" class="status-badge">
+        <span id="statusDot" class="dot"></span>
+        <span id="statusText">Monitoring Stopped</span>
+      </div>
+    </div>
+
+    <!-- Auto-Detect Radar Card -->
+    <div id="radarCard" class="radar-card auto-active">
+      <div class="radar-header">
+        <div class="radar-title-group">
+          <span class="radar-icon">📡</span>
+          <span class="radar-label">AUTO-DETECT CAMERA RADAR</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="autoDetectToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div id="radarStatusText" class="radar-status-text">
+        Auto-Detect active: Monitoring approaching Ghana MTTD speed camera corridors.
+      </div>
+    </div>
+
+    <!-- Speedometer Gauge Area -->
+    <div class="speedometer-container">
+      <svg class="gauge-svg" viewBox="0 0 240 180">
+        <!-- Background Track Arc -->
+        <path class="gauge-track" d="M 30 150 A 90 90 0 1 1 210 150" />
+        <!-- Progress Arc -->
+        <path id="gaugeProgress" class="gauge-progress" d="M 30 150 A 90 90 0 1 1 210 150" />
+      </svg>
+
+      <div class="speed-digital-display">
+        <span id="speedNumber" class="speed-number">0</span>
+        <span class="speed-unit">KM/H</span>
+        
+        <div class="effective-limit-badge" title="Active Speed Limit">
+          <span class="limit-pill" id="effectiveLimitNumber">80</span>
+          <span>LIMIT</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual Speed Limit Presets -->
+    <div class="preset-section">
+      <div class="preset-title">Speed Limits (Ghana Presets)</div>
+      <div class="preset-chips">
+        <button class="chip-btn" data-limit="30">30 km/h</button>
+        <button class="chip-btn" data-limit="50">50 km/h</button>
+        <button class="chip-btn selected" data-limit="80">80 km/h</button>
+        <button class="chip-btn" data-limit="100">100 km/h</button>
+        <button class="chip-btn" data-limit="120">120 km/h</button>
+        <button class="chip-btn custom-chip" id="customLimitChip">✏️ Custom</button>
+      </div>
+    </div>
+
+    <!-- Trip Statistics -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Max Speed</div>
+        <div class="stat-value" id="statMaxSpeed">0 km/h</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg Speed</div>
+        <div class="stat-value" id="statAvgSpeed">0 km/h</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Distance</div>
+        <div class="stat-value" id="statDistance">0.0 km</div>
+      </div>
+    </div>
+
+    <!-- Big Action Button -->
+    <button id="mainActionBtn" class="main-action-btn start-btn">
+      <span>▶</span> START MONITORING
+    </button>
+
+    <!-- iOS Add to Home Screen Banner (visible only on iOS Safari) -->
+    <div id="iosInstallBanner" class="ios-banner" style="display: none;">
+      <span class="icon">📲</span>
+      <div>
+        <strong>iPhone Users:</strong> Tap the <strong>Share</strong> button <span style="font-size: 14px;">(⎙/⎋)</span> in Safari and tap <strong>"Add to Home Screen"</strong> to use as a full-screen app!
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings & Audio</h2>
+        <button class="close-btn" data-close-modal="settingsModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-title">Voice Assistant Style</div>
+            <div class="setting-desc">Natural English voice style for prompts</div>
+          </div>
+          <select id="voiceGenderSelect" style="padding: 6px 10px; border-radius: 8px; background: var(--bg-color); color: var(--text-primary); border: 1px solid var(--surface-border);">
+            <option value="FEMALE">Female Voice</option>
+            <option value="MALE">Male Voice</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-title">Alert Cooldown</div>
+            <div class="setting-desc">Interval between repeated over-limit alerts</div>
+          </div>
+          <select id="cooldownSelect" style="padding: 6px 10px; border-radius: 8px; background: var(--bg-color); color: var(--text-primary); border: 1px solid var(--surface-border);">
+            <option value="10">10 seconds</option>
+            <option value="15">15 seconds</option>
+            <option value="20">20 seconds</option>
+            <option value="30">30 seconds</option>
+          </select>
+        </div>
+
+        <button id="testVoiceBtn" class="modal-btn" style="margin-top: 14px;">
+          🔊 Test Voice Prompts Now
+        </button>
+
+        <button id="openGuideBtn" class="modal-btn" style="background: rgba(252, 209, 22, 0.15); border-color: rgba(252, 209, 22, 0.4); color: var(--ghana-gold);">
+          📷 Ghana MTTD Speed Camera Guide
+        </button>
+
+        <button id="openPrivacyBtn" class="modal-btn" style="margin-top: 8px;">
+          🔒 Privacy Policy & Data
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ghana Speed Camera Guide Modal -->
+  <div id="guideModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🇬🇭 Ghana Speed Cameras Guide</h2>
+        <button class="close-btn" data-close-modal="guideModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>The Ghana Police Service (MTTD) has deployed automated radar speed cameras across major Greater Accra transit links:</p>
+        
+        <h3>📍 Monitored Locations & Limits:</h3>
+        <ul>
+          <li><strong>Borteyman Sports Facility Corridor</strong>: 80 km/h</li>
+          <li><strong>N1 Highway (Fiesta Royale Hotel)</strong>: 80 km/h</li>
+          <li><strong>N1 Highway (Baah / Bar Junction)</strong>: 80 km/h</li>
+          <li><strong>Kawukudi (Olusegun Obasanjo Highway)</strong>: 50 km/h</li>
+          <li><strong>Kanda Highway</strong>: 50 km/h</li>
+        </ul>
+
+        <h3>🛡️ Road Safety Tips:</h3>
+        <ul>
+          <li><strong>Approaching Alert</strong>: SpeedCheck warns you 5 km/h before reaching the limit to allow smooth braking.</li>
+          <li><strong>Urban Centers</strong>: The default speed limit in Accra town areas is 50 km/h unless otherwise posted.</li>
+          <li><strong>School & Hospital Feeder Roads</strong>: Strictly 30 km/h.</li>
+        </ul>
+
+        <button class="modal-btn primary" data-close-modal="guideModal">Got It</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Privacy Policy Modal -->
+  <div id="privacyModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Privacy Policy</h2>
+        <button class="close-btn" data-close-modal="privacyModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p><strong>SpeedCheck is 100% private and ad-free.</strong></p>
+        <br>
+        <h3>1. Location Data</h3>
+        <p>Your GPS coordinates are used exclusively inside your browser to calculate current speed and distance to approaching speed camera zones. <strong>No location data is ever transmitted, logged, or uploaded to any server.</strong></p>
+        
+        <h3>2. Zero Tracking & No Ads</h3>
+        <p>SpeedCheck does not use cookies, advertising identifiers, or analytics trackers. Everything runs client-side on your device.</p>
+
+        <h3>3. Offline & Standalone</h3>
+        <p>All core detection and voice algorithms function entirely offline once cached.</p>
+        
+        <button class="modal-btn primary" data-close-modal="privacyModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Script -->
+  <script src="app.js"></script>
+</body>
+</html>

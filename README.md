@@ -6,7 +6,10 @@
   <b>Smart Road Safety & Automated Speed Camera Alert App for Drivers in Ghana</b>
   <br><br>
   <a href="https://github.com/cosmicagbey/speedcheck/releases/latest">
-    <img src="https://img.shields.io/badge/Download-SpeedCheck.apk-brightgreen?style=for-the-badge&logo=android" alt="Download APK" />
+    <img src="https://img.shields.io/badge/Download-SpeedCheck.aab-blue?style=for-the-badge&logo=googleplay" alt="Download AAB" />
+  </a>
+  <a href="https://cosmicagbey.github.io/speedcheck/">
+    <img src="https://img.shields.io/badge/Web_Version-Open_in_Safari_/_Chrome-brightgreen?style=for-the-badge&logo=safari" alt="Web PWA App" />
   </a>
   <a href="https://github.com/cosmicagbey/speedcheck/actions">
     <img src="https://img.shields.io/github/actions/workflow/status/cosmicagbey/speedcheck/build-apk.yml?branch=main&style=for-the-badge&label=Build" alt="Build Status" />
@@ -15,7 +18,19 @@
 
 ---
 
-## 📲 How to Download & Try
+## 🌐 Instant Web Version (For iPhone / iPad & Android)
+
+No download or installation required! Anyone on iOS (Safari) or Android can use SpeedCheck instantly in the browser:
+
+👉 **[Launch SpeedCheck Web App](https://cosmicagbey.github.io/speedcheck/)**
+
+* **📱 Add to Home Screen on iPhone**: Open the link in Safari, tap the **Share** button, and tap **"Add to Home Screen"**. It opens in standalone full-screen mode just like a native app.
+* **🗣️ Spoken Audio Alerts**: Hands-free voice prompts speak out over your car speakers or Bluetooth.
+* **🔆 Keep Screen Awake**: Uses the Screen WakeLock API so your phone doesn't sleep in a car mount.
+
+---
+
+## 📲 Android App Bundle (Google Play Closed Testing)
 
 1. On your Android phone, tap the download link:  
    👉 **[Download SpeedCheck.apk (Latest Version)](https://github.com/cosmicagbey/speedcheck/releases/latest)**

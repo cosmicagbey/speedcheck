@@ -86,7 +86,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     userPreferences: UserPreferences,
-    onNavigateBack: () -> Unit,
+    onNavigateBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -110,23 +110,10 @@ fun SettingsScreen(
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text("Settings", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            scope.launch {
-                                repository.updateDarkMode(!userPreferences.isDarkMode)
-                            }
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
-                    ) {
-                        Icon(
-                            imageVector = if (userPreferences.isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
-                            contentDescription = if (userPreferences.isDarkMode) "Switch to Light Mode" else "Switch to Dark Mode",
-                            tint = if (userPreferences.isDarkMode) GhanaGold else MaterialTheme.colorScheme.primary
-                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -445,34 +432,6 @@ fun SettingsScreen(
                             Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Test Voice Alerts Now")
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Open System TTS settings to download Google's Neural high-quality voice packs
-                        TextButton(
-                            onClick = {
-                                try {
-                                    val intent = Intent("com.android.settings.TTS_SETTINGS")
-                                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    try {
-                                        val fallback = Intent(android.provider.Settings.ACTION_SETTINGS)
-                                        fallback.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                        context.startActivity(fallback)
-                                    } catch (_: Exception) {}
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.SettingsVoice, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Device TTS & Neural Voice Settings",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
                         }
                     }
                 }

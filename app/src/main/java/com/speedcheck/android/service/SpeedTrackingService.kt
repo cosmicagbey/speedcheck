@@ -11,10 +11,12 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import com.speedcheck.android.data.PreferencesRepository
+import com.speedcheck.android.data.SpeedLogRepository
 import com.speedcheck.android.data.UserPreferences
 import com.speedcheck.android.model.CameraDetectionResult
 import com.speedcheck.android.model.MonitoringState
 import com.speedcheck.android.model.SpeedAlertStatus
+import com.speedcheck.android.model.SpeedLogEntry
 import com.speedcheck.android.model.TripStats
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -46,6 +48,7 @@ class SpeedTrackingService : Service() {
     private lateinit var notificationHelper: NotificationHelper
     private lateinit var ttsManager: TextToSpeechManager
     private lateinit var preferencesRepository: PreferencesRepository
+    private lateinit var speedLogRepository: SpeedLogRepository
 
     private var currentPreferences = UserPreferences()
 
@@ -55,8 +58,10 @@ class SpeedTrackingService : Service() {
     private var lastLocation: Location? = null
     private var currentMonitoringState = MonitoringState.STOPPED
 
-    // Speed camera zone announcement tracker
+    // Speed camera zone announcement & log tracker
     private var lastAnnouncedCameraZoneId: String? = null
+    private var lastLogSnapshotTimeMs = 0L
+    private var lastLoggedCameraZoneId: String? = null
 
     // Trip Statistics
     private var tripStats = TripStats()
@@ -78,6 +83,7 @@ class SpeedTrackingService : Service() {
         notificationHelper = NotificationHelper(this)
         ttsManager = TextToSpeechManager(this)
         preferencesRepository = PreferencesRepository.getInstance(this)
+        speedLogRepository = SpeedLogRepository.getInstance(this)
 
         observePreferences()
     }
@@ -265,7 +271,73 @@ class SpeedTrackingService : Service() {
             cameraZoneName = detectionResult.activeZone?.name
         )
 
+        // Capture verifiable driving log snapshot for history & evidence
+        evaluateLogSnapshot(location, speedKmh, effectiveLimit, alertStatus, detectionResult)
+
         lastLocation = location
+    }
+
+    private fun evaluateLogSnapshot(
+        location: Location,
+        speedKmh: Float,
+        effectiveLimit: Int,
+        alertStatus: SpeedAlertStatus,
+        detectionResult: CameraDetectionResult
+    ) {
+        val now = System.currentTimeMillis()
+        val zone = detectionResult.activeZone
+        val isNewZone = zone != null && zone.id != lastLoggedCameraZoneId
+        val isOverspeedAlert = alertStatus != SpeedAlertStatus.NORMAL && (now - lastLogSnapshotTimeMs >= 15000L)
+        val isPeriodicHeartbeat = speedKmh >= 15f && (now - lastLogSnapshotTimeMs >= 60000L)
+
+        if (isNewZone || isOverspeedAlert || isPeriodicHeartbeat) {
+            val place = if (zone != null) {
+                "${zone.name} (${zone.roadName})"
+            } else if (speedKmh >= 65f) {
+                "Ghana National Highway Corridor"
+            } else {
+                "Urban Road / Built-up Area"
+            }
+
+            val compliance = if (speedKmh <= effectiveLimit) {
+                "COMPLIANT (Safe Driving)"
+            } else {
+                "EXCEEDED (+${(speedKmh - effectiveLimit).toInt()} km/h)"
+            }
+
+            val note = if (zone != null) {
+                "MTTD automated camera corridor. Zone limit: ${zone.speedLimitKmh} km/h."
+            } else if (alertStatus == SpeedAlertStatus.EXCEEDED) {
+                "Driver speed exceeded limit. Alert triggered."
+            } else {
+                "Routine driving speed evidence log."
+            }
+
+            serviceScope.launch(Dispatchers.IO) {
+                speedLogRepository.logSnapshot(
+                    SpeedLogEntry(
+                        timestamp = now,
+                        placeName = place,
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        speedKmh = speedKmh,
+                        maxSpeedKmh = tripStats.maxSpeedKmh,
+                        speedLimitKmh = effectiveLimit,
+                        alertStatus = alertStatus,
+                        isAutoDetect = currentPreferences.autoDetectSpeedLimit,
+                        complianceStatus = compliance,
+                        note = note
+                    )
+                )
+            }
+
+            lastLogSnapshotTimeMs = now
+            if (zone != null) {
+                lastLoggedCameraZoneId = zone.id
+            } else {
+                lastLoggedCameraZoneId = null
+            }
+        }
     }
 
     private fun calculateSpeedKmh(location: Location): Float {

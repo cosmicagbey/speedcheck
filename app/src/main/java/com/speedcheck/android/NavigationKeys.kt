@@ -7,4 +7,7 @@ import kotlinx.serialization.Serializable
 data object Dashboard : NavKey
 
 @Serializable
+data object History : NavKey
+
+@Serializable
 data object Settings : NavKey

@@ -30,8 +30,10 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.GpsFixed
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Settings
@@ -96,7 +98,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun DashboardScreen(
     userPreferences: UserPreferences,
-    onNavigateToSettings: () -> Unit,
+    onToggleTheme: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -144,12 +146,13 @@ fun DashboardScreen(
             // Top Bar with App Logo
             DashboardTopBar(
                 isVoiceMuted = !userPreferences.voiceAlertsEnabled,
+                isDarkMode = userPreferences.isDarkMode,
                 onToggleMute = {
                     scope.launch {
                         repository.updateVoiceAlertsEnabled(!userPreferences.voiceAlertsEnabled)
                     }
                 },
-                onOpenSettings = onNavigateToSettings
+                onToggleTheme = onToggleTheme
             )
 
             Spacer(modifier = Modifier.height(6.dp))
@@ -406,8 +409,9 @@ fun DashboardScreen(
 @Composable
 private fun DashboardTopBar(
     isVoiceMuted: Boolean,
+    isDarkMode: Boolean,
     onToggleMute: () -> Unit,
-    onOpenSettings: () -> Unit
+    onToggleTheme: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -455,7 +459,7 @@ private fun DashboardTopBar(
             }
         }
 
-        Row {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onToggleMute) {
                 Icon(
                     imageVector = if (isVoiceMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
@@ -463,11 +467,11 @@ private fun DashboardTopBar(
                     tint = if (isVoiceMuted) SpeedExceededRed else SpeedSafeGreen
                 )
             }
-            IconButton(onClick = onOpenSettings) {
+            IconButton(onClick = onToggleTheme) {
                 Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = MaterialTheme.colorScheme.onSurface
+                    imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                    contentDescription = if (isDarkMode) "Switch to Light Mode" else "Switch to Dark Mode",
+                    tint = if (isDarkMode) GhanaGold else MaterialTheme.colorScheme.primary
                 )
             }
         }

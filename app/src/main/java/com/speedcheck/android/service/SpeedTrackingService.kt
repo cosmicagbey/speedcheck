@@ -235,7 +235,7 @@ class SpeedTrackingService : Service() {
         if (currentPreferences.autoDetectSpeedLimit && currentPreferences.voiceAlertsEnabled) {
             val zone = detectionResult.activeZone
             if (zone != null && zone.id != lastAnnouncedCameraZoneId && detectionResult.isMovingTowardsCamera) {
-                ttsManager.speak("Speed camera zone ahead on ${zone.name}. Speed limit is ${zone.speedLimitKmh} kilometers per hour.")
+                ttsManager.speak("Speed cameras ahead.")
                 lastAnnouncedCameraZoneId = zone.id
             } else if (zone == null) {
                 lastAnnouncedCameraZoneId = null

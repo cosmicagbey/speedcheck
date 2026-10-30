@@ -203,20 +203,20 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
         val approachingThreshold = (speedLimitKmh - approachingOffsetKmh).coerceAtLeast(1)
 
         when {
-            // Speed exceeds limit: Clear, polite but urgent prompt
+            // Speed exceeds limit: Clear, short and precise prompt
             currentSpeedKmh >= speedLimitKmh -> {
                 val cooldownMs = cooldownSeconds * 1000L
                 if (currentTime - lastExceededAlertTimeMs >= cooldownMs) {
-                    val message = "Caution. Speed is over your limit of $speedLimitKmh kilometers per hour. Please slow down."
+                    val message = "Slow down. Speed limit exceeded."
                     speak(message, TextToSpeech.QUEUE_FLUSH)
                     lastExceededAlertTimeMs = currentTime
                 }
             }
 
-            // Approaching speed limit: Early notification
+            // Approaching speed limit: Early short warning
             currentSpeedKmh >= approachingThreshold && currentSpeedKmh < speedLimitKmh -> {
                 if (!hasApproachingAlertFiredInCurrentZone) {
-                    val message = "Approaching $speedLimitKmh kilometers per hour."
+                    val message = "You are about to cross the speed limit."
                     speak(message, TextToSpeech.QUEUE_FLUSH)
                     lastApproachingAlertTimeMs = currentTime
                     hasApproachingAlertFiredInCurrentZone = true

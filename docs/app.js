@@ -169,7 +169,7 @@ function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
 
     // Trigger Camera Zone Voice Announcement once per corridor
     if (state.voiceAlertsEnabled && closestZone.id !== state.lastAnnouncedCameraZoneId && isMovingTowards) {
-      speakVoice(`Speed camera ahead on ${closestZone.name}. Speed limit is ${closestZone.speedLimitKmh} kilometers per hour.`);
+      speakVoice("Speed cameras ahead.");
       state.lastAnnouncedCameraZoneId = closestZone.id;
     }
   } else {
@@ -252,12 +252,12 @@ function processSpeedAlerts(speedKmh, limitKmh) {
   if (speedKmh >= limitKmh) {
     const cooldownMs = state.alertCooldownSeconds * 1000;
     if (now - state.lastExceededAlertTime >= cooldownMs) {
-      speakVoice(`Caution. Speed is over your limit of ${limitKmh} kilometers per hour. Please slow down.`);
+      speakVoice("Slow down. Speed limit exceeded.");
       state.lastExceededAlertTime = now;
     }
   } else if (speedKmh >= approachingThreshold && speedKmh < limitKmh) {
     if (!state.hasApproachingFiredInZone) {
-      speakVoice(`Approaching ${limitKmh} kilometers per hour.`);
+      speakVoice("You are about to cross the speed limit.");
       state.hasApproachingFiredInZone = true;
     }
   } else if (speedKmh < approachingThreshold - 2) {
@@ -495,7 +495,7 @@ function actuallyStartMonitoring() {
     );
   }
 
-  speakVoice(`SpeedCheck active. Limit set to ${state.effectiveLimitKmh} kilometers per hour.`);
+  speakVoice("SpeedCheck active.");
   updateUI();
 }
 
@@ -827,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (testVoiceBtn) {
     testVoiceBtn.addEventListener('click', () => {
       unlockAudioContext();
-      speakVoice("Speed camera zone ahead on N1 Highway Fiesta Royale. Limit is 80 kilometers per hour. Caution, please slow down.");
+      speakVoice("Speed cameras ahead. You are about to cross the speed limit. Slow down. Speed limit exceeded.");
     });
   }
 

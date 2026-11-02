@@ -167,11 +167,7 @@ function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
     state.isMovingTowardsCamera = isMovingTowards;
     state.effectiveLimitKmh = closestZone.speedLimitKmh;
 
-    // Trigger Camera Zone Voice Announcement once per corridor
-    if (state.voiceAlertsEnabled && closestZone.id !== state.lastAnnouncedCameraZoneId && isMovingTowards) {
-      speakVoice("Speed cameras ahead.");
-      state.lastAnnouncedCameraZoneId = closestZone.id;
-    }
+    // Camera zone detection state is handled in processSpeedAlerts
   } else {
     state.activeZone = null;
     state.distanceToCameraMeters = null;
@@ -242,26 +238,48 @@ function unlockAudioContext() {
   } catch (e) {}
 }
 
-// 6. Alert Logic
+// 6. Unified Speech Alert Logic
 function processSpeedAlerts(speedKmh, limitKmh) {
   if (!state.voiceAlertsEnabled || !state.isMonitoring) return;
+  if (speedKmh < 8.0) return; // Suppress alerts when stationary or walking
 
   const now = Date.now();
+  const cooldownMs = state.alertCooldownSeconds * 1000;
   const approachingThreshold = Math.max(1, limitKmh - state.approachingOffsetKmh);
+  const isApproachingOrExceeded = speedKmh >= approachingThreshold;
 
-  if (speedKmh >= limitKmh) {
-    const cooldownMs = state.alertCooldownSeconds * 1000;
-    if (now - state.lastExceededAlertTime >= cooldownMs) {
-      speakVoice("Slow down. Speed limit exceeded.");
-      state.lastExceededAlertTime = now;
+  const hasCameraAhead = state.activeZone && state.isMovingTowardsCamera;
+  const cameraZoneId = hasCameraAhead ? state.activeZone.id : null;
+
+  if (hasCameraAhead && cameraZoneId) {
+    if (isApproachingOrExceeded) {
+      if ((now - (state.lastAlertTime || 0) >= cooldownMs) || cameraZoneId !== state.lastAnnouncedCameraZoneId) {
+        speakVoice("Speed cameras ahead, slow down.");
+        state.lastAlertTime = now;
+        state.lastAnnouncedCameraZoneId = cameraZoneId;
+        state.hasApproachingFired = true;
+      }
+    } else {
+      if (cameraZoneId !== state.lastAnnouncedCameraZoneId) {
+        speakVoice("Speed cameras ahead, be careful.");
+        state.lastAnnouncedCameraZoneId = cameraZoneId;
+        state.lastAlertTime = now;
+      }
     }
-  } else if (speedKmh >= approachingThreshold && speedKmh < limitKmh) {
-    if (!state.hasApproachingFiredInZone) {
-      speakVoice("You are about to cross the speed limit.");
-      state.hasApproachingFiredInZone = true;
+  } else {
+    if (!state.activeZone) {
+      state.lastAnnouncedCameraZoneId = null;
     }
-  } else if (speedKmh < approachingThreshold - 2) {
-    state.hasApproachingFiredInZone = false;
+
+    if (isApproachingOrExceeded) {
+      if (!state.hasApproachingFired || (now - (state.lastAlertTime || 0) >= cooldownMs)) {
+        speakVoice("You are about to cross the speed limit, slow down.");
+        state.lastAlertTime = now;
+        state.hasApproachingFired = true;
+      }
+    } else if (speedKmh < approachingThreshold - 2) {
+      state.hasApproachingFired = false;
+    }
   }
 }
 
@@ -344,8 +362,8 @@ function handlePositionUpdate(position) {
   }
 
   // Filter 2: Deadband for Stationary / Walking
-  // Speeds under 6 km/h are considered stationary (eliminates walking/pocket wobble)
-  if (rawCalculatedSpeed < 6.0) {
+  // Speeds under 8 km/h are considered stationary (eliminates walking/pocket wobble)
+  if (rawCalculatedSpeed < 8.0) {
     rawCalculatedSpeed = 0;
   }
 
@@ -827,7 +845,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (testVoiceBtn) {
     testVoiceBtn.addEventListener('click', () => {
       unlockAudioContext();
-      speakVoice("Speed cameras ahead. You are about to cross the speed limit. Slow down. Speed limit exceeded.");
+      speakVoice("Speed cameras ahead, slow down. You are about to cross the speed limit, slow down.");
     });
   }
 

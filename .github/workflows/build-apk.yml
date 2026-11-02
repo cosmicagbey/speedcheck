@@ -63,11 +63,15 @@ jobs:
             ### 📦 Download Bundle:
             * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing** (Version `1.0.3`, Build `4`).
 
-            ### 🚀 What's New in v1.0.3:
-            * **🗣️ Short & Precise Voice Speech**:
-              * Approaching limit: *"You are about to cross the speed limit."*
-              * Over limit: *"Slow down. Speed limit exceeded."*
-              * Speed camera ahead: *"Speed cameras ahead."*
+            ### 🚀 What's New:
+            * **🗣️ Reduced & Contextual Voice Speech (No Overlaps)**:
+              * Outside camera zones (approaching or exceeding): *"You are about to cross the speed limit, slow down."*
+              * Approaching camera zone (safe speed): *"Speed cameras ahead, be careful."*
+              * In camera zone & approaching/breaking limit: *"Speed cameras ahead, slow down."*
+            * **🛑 Anti-Jitter Speedometer (Stationary & Walking Filter)**:
+              * Strict 8.0 km/h deadband filter prevents false speedometer movement when stationary, parked at red lights, or walking.
+              * Exponential moving average (EMA) smoothing eliminates needle jitter.
+              * Distance and trip calculations only accumulate when actively driving.
             * **🌓 Isolated Light Theme**:
               * Phone's top notification area / status bar is permanently locked to a solid dark bar (`#0F172A`) with crisp white system icons.
               * Light theme is strictly confined to the in-app screens and never bleeds into or washes out the phone's notification bar.

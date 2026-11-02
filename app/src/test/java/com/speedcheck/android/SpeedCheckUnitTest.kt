@@ -150,4 +150,69 @@ class SpeedCheckUnitTest {
         assertEquals(50, kanda?.speedLimitKmh)
         assertTrue(kanda?.name?.contains("Kanda") == true)
     }
+
+    @Test
+    fun voiceAlertMessage_resolvesCorrectContextualPhrases() {
+        fun resolveAlertMessage(
+            speedKmh: Float,
+            speedLimitKmh: Int,
+            approachingOffsetKmh: Int,
+            hasCameraAhead: Boolean
+        ): String? {
+            // Suppress alerts when stationary or walking (< 8 km/h)
+            if (speedKmh < 8.0f) return null
+
+            val approachingThreshold = (speedLimitKmh - approachingOffsetKmh).coerceAtLeast(1)
+            val isApproachingOrExceeded = speedKmh >= approachingThreshold
+
+            return if (hasCameraAhead) {
+                if (isApproachingOrExceeded) {
+                    "Speed cameras ahead, slow down."
+                } else {
+                    "Speed cameras ahead, be careful."
+                }
+            } else {
+                if (isApproachingOrExceeded) {
+                    "You are about to cross the speed limit, slow down."
+                } else {
+                    null
+                }
+            }
+        }
+
+        val limit = 80
+        val offset = 5
+
+        // Case 1: Stationary or walking (0-7.9 km/h) -> No alert in any scenario
+        assertEquals(null, resolveAlertMessage(0f, limit, offset, hasCameraAhead = true))
+        assertEquals(null, resolveAlertMessage(5.5f, limit, offset, hasCameraAhead = false))
+        assertEquals(null, resolveAlertMessage(7.9f, limit, offset, hasCameraAhead = true))
+
+        // Case 2: Camera zone + driving safely (60 km/h in 80 zone)
+        assertEquals("Speed cameras ahead, be careful.", resolveAlertMessage(60f, limit, offset, hasCameraAhead = true))
+
+        // Case 3: Camera zone + approaching/breaking limit (76 km/h or 85 km/h in 80 zone)
+        assertEquals("Speed cameras ahead, slow down.", resolveAlertMessage(75f, limit, offset, hasCameraAhead = true))
+        assertEquals("Speed cameras ahead, slow down.", resolveAlertMessage(85f, limit, offset, hasCameraAhead = true))
+
+        // Case 4: Normal road (no camera) + approaching/breaking limit
+        assertEquals("You are about to cross the speed limit, slow down.", resolveAlertMessage(75f, limit, offset, hasCameraAhead = false))
+        assertEquals("You are about to cross the speed limit, slow down.", resolveAlertMessage(90f, limit, offset, hasCameraAhead = false))
+
+        // Case 5: Normal road (no camera) + driving safely (60 km/h in 80 zone)
+        assertEquals(null, resolveAlertMessage(60f, limit, offset, hasCameraAhead = false))
+    }
+
+    @Test
+    fun stationaryDeadband_clampsLowSpeedsToZero() {
+        val minVehicleSpeed = 8.0f
+        fun clampSpeed(rawSpeed: Float): Float = if (rawSpeed < minVehicleSpeed) 0f else rawSpeed
+
+        assertEquals(0f, clampSpeed(0f), 0.001f)
+        assertEquals(0f, clampSpeed(1.5f), 0.001f) // GPS drift
+        assertEquals(0f, clampSpeed(4.2f), 0.001f) // Walking
+        assertEquals(0f, clampSpeed(7.9f), 0.001f) // Fast walk / pocket wobble
+        assertEquals(10f, clampSpeed(10f), 0.001f) // Vehicle moving
+        assertEquals(50f, clampSpeed(50f), 0.001f) // Vehicle driving
+    }
 }

@@ -56,6 +56,7 @@ class SpeedTrackingService : Service() {
     private var consecutiveMovingReadings = 0
     private var consecutiveStationarySeconds = 0
     private var lastLocation: Location? = null
+    private var smoothedSpeedKmh = 0f
     private var currentMonitoringState = MonitoringState.STOPPED
 
     // Speed camera zone announcement & log tracker
@@ -139,6 +140,7 @@ class SpeedTrackingService : Service() {
         _tripStatsFlow.value = tripStats
         totalSpeedSum = 0.0
         speedReadingsCount = 0
+        smoothedSpeedKmh = 0f
         lastAnnouncedCameraZoneId = null
 
         val effectiveLimit = resolveEffectiveLimit()
@@ -174,6 +176,7 @@ class SpeedTrackingService : Service() {
         currentMonitoringState = MonitoringState.STOPPED
         _monitoringStateFlow.value = MonitoringState.STOPPED
         _currentSpeedFlow.value = 0f
+        smoothedSpeedKmh = 0f
         _alertStatusFlow.value = SpeedAlertStatus.NORMAL
         _cameraDetectionFlow.value = CameraDetectionResult()
         lastAnnouncedCameraZoneId = null
@@ -237,28 +240,27 @@ class SpeedTrackingService : Service() {
         }
         _effectiveLimitFlow.value = effectiveLimit
 
-        // Voice announcement when approaching a new speed camera zone
-        if (currentPreferences.autoDetectSpeedLimit && currentPreferences.voiceAlertsEnabled) {
-            val zone = detectionResult.activeZone
-            if (zone != null && zone.id != lastAnnouncedCameraZoneId && detectionResult.isMovingTowardsCamera) {
-                ttsManager.speak("Speed cameras ahead.")
-                lastAnnouncedCameraZoneId = zone.id
-            } else if (zone == null) {
-                lastAnnouncedCameraZoneId = null
-            }
-        }
-
         // Evaluate Speed Alert Status (Normal / Approaching / Exceeded)
         val alertStatus = evaluateSpeedAlert(speedKmh, effectiveLimit)
         _alertStatusFlow.value = alertStatus
 
-        // Trigger Approaching & Over-Limit Voice Prompts
+        // Unified Contextual Voice Prompts:
+        // - Outside camera zones & approaching/breaking limit: "You are about to cross the speed limit, slow down"
+        // - In camera zone & safe speed: "Speed cameras ahead, be careful"
+        // - In camera zone & approaching/breaking limit: "Speed cameras ahead, slow down"
         if (currentPreferences.voiceAlertsEnabled && currentMonitoringState == MonitoringState.ACTIVE_MONITORING) {
+            val hasCameraAhead = currentPreferences.autoDetectSpeedLimit &&
+                    detectionResult.activeZone != null &&
+                    detectionResult.isMovingTowardsCamera
+            val cameraZoneId = if (hasCameraAhead) detectionResult.activeZone.id else null
+
             ttsManager.processSpeedAlert(
                 currentSpeedKmh = speedKmh,
                 speedLimitKmh = effectiveLimit,
                 approachingOffsetKmh = currentPreferences.approachingOffsetKmh,
-                cooldownSeconds = currentPreferences.alertCooldownSeconds
+                cooldownSeconds = currentPreferences.alertCooldownSeconds,
+                hasCameraAhead = hasCameraAhead,
+                cameraZoneId = cameraZoneId
             )
         }
 
@@ -341,29 +343,58 @@ class SpeedTrackingService : Service() {
     }
 
     private fun calculateSpeedKmh(location: Location): Float {
-        return if (location.hasSpeed()) {
+        // Discard fallback calculation if GPS accuracy is severely degraded (> 35m)
+        val hasGoodAccuracy = !location.hasAccuracy() || location.accuracy <= 35f
+
+        val rawSpeedKmh = if (location.hasSpeed()) {
             (location.speed * 3.6f).coerceAtLeast(0f)
-        } else {
+        } else if (hasGoodAccuracy) {
             val prev = lastLocation
             if (prev != null && location.time > prev.time) {
                 val distanceMeters = location.distanceTo(prev)
                 val timeSeconds = (location.time - prev.time) / 1000.0f
-                if (timeSeconds > 0) {
+
+                // Ignore micro-drift under 3.5m and require at least 0.8s between updates
+                if (distanceMeters >= 3.5f && timeSeconds >= 0.8f) {
                     val calculatedSpeedMs = distanceMeters / timeSeconds
-                    (calculatedSpeedMs * 3.6f).coerceAtLeast(0f)
+                    val calculatedSpeedKmh = (calculatedSpeedMs * 3.6f).coerceAtLeast(0f)
+                    // Physical acceleration sanity cap (max 25 km/h per second acceleration)
+                    val maxPermitted = smoothedSpeedKmh + (25f * timeSeconds)
+                    calculatedSpeedKmh.coerceIn(0f, maxPermitted)
                 } else 0f
             } else 0f
+        } else {
+            0f
+        }
+
+        // Deadband filter: Stationary / Walking Cutoff
+        // Speeds under MIN_VEHICLE_SPEED_KMH (8.0 km/h) are clamped to 0 km/h.
+        // This stops speedometer jitter when stationary, sitting at traffic lights, or walking.
+        return if (rawSpeedKmh < MIN_VEHICLE_SPEED_KMH) {
+            smoothedSpeedKmh = 0f
+            0f
+        } else {
+            // Exponential moving average smoothing for realistic vehicle gauge response
+            smoothedSpeedKmh = if (smoothedSpeedKmh == 0f) {
+                rawSpeedKmh
+            } else {
+                (0.60f * rawSpeedKmh) + (0.40f * smoothedSpeedKmh)
+            }
+            smoothedSpeedKmh
         }
     }
 
     private fun updateTripStats(speedKmh: Float, location: Location) {
         lastLocation?.let { prev ->
-            val deltaDistanceKm = prev.distanceTo(location) / 1000f
-            tripStats = tripStats.copy(distanceKm = tripStats.distanceKm + deltaDistanceKm)
+            // Only accumulate distance if the vehicle is actively moving (not stationary drift)
+            if (speedKmh > 0f) {
+                val deltaDistanceKm = prev.distanceTo(location) / 1000f
+                tripStats = tripStats.copy(distanceKm = tripStats.distanceKm + deltaDistanceKm)
+            }
         }
 
         val maxSpeed = maxOf(tripStats.maxSpeedKmh, speedKmh)
-        if (speedKmh > 3f) {
+        if (speedKmh > 0f) {
             totalSpeedSum += speedKmh
             speedReadingsCount++
         }
@@ -445,6 +476,7 @@ class SpeedTrackingService : Service() {
 
     companion object {
         private const val TAG = "SpeedTrackingService"
+        const val MIN_VEHICLE_SPEED_KMH = 8.0f
 
         const val ACTION_START_MONITORING = "com.speedcheck.android.action.START_MONITORING"
         const val ACTION_STOP_MONITORING = "com.speedcheck.android.action.STOP_MONITORING"

@@ -425,7 +425,7 @@ fun SettingsScreen(
                                     rate = userPreferences.speechRate,
                                     pitch = userPreferences.speechPitch
                                 )
-                                ttsManager.speak("Speed cameras ahead. You are about to cross the speed limit. Slow down. Speed limit exceeded.")
+                                ttsManager.speak("Speed cameras ahead, slow down. You are about to cross the speed limit, slow down.")
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {

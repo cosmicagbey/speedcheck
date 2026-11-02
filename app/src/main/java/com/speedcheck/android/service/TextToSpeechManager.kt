@@ -35,10 +35,10 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
     private var speechRate = 1.0f
     private var speechPitch = 1.0f
 
-    // Alert spam prevention timers
-    private var lastApproachingAlertTimeMs = 0L
-    private var lastExceededAlertTimeMs = 0L
-    private var hasApproachingAlertFiredInCurrentZone = false
+    // Alert spam prevention timers & state tracking
+    private var lastAlertTimeMs = 0L
+    private var lastAnnouncedCameraZoneId: String? = null
+    private var hasApproachingAlertFired = false
 
     init {
         initializeEngine()
@@ -191,41 +191,69 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
     }
 
     /**
-     * Checks vehicle speed and triggers proactive voice alerts with anti-spam cooldown.
+     * Checks vehicle speed and triggers proactive, unified voice alerts with anti-spam cooldown:
+     * - Outside speed camera zone & approaching/breaking limit:
+     *   "You are about to cross the speed limit, slow down."
+     * - In location with known speed camera & driving within safe limit:
+     *   "Speed cameras ahead, be careful." (announced once upon entering zone)
+     * - In location with known speed camera & approaching/breaking limit:
+     *   "Speed cameras ahead, slow down." (with cooldown)
+     * - Stationary or walking (< 8 km/h): Suppressed completely to prevent false triggers.
      */
     fun processSpeedAlert(
         currentSpeedKmh: Float,
         speedLimitKmh: Int,
         approachingOffsetKmh: Int,
-        cooldownSeconds: Int
+        cooldownSeconds: Int,
+        hasCameraAhead: Boolean = false,
+        cameraZoneId: String? = null
     ) {
+        // Suppress voice alerts when stationary or walking
+        if (currentSpeedKmh < 8.0f) {
+            return
+        }
+
         val currentTime = System.currentTimeMillis()
+        val cooldownMs = cooldownSeconds * 1000L
         val approachingThreshold = (speedLimitKmh - approachingOffsetKmh).coerceAtLeast(1)
+        val isApproachingOrExceeded = currentSpeedKmh >= approachingThreshold
 
-        when {
-            // Speed exceeds limit: Clear, short and precise prompt
-            currentSpeedKmh >= speedLimitKmh -> {
-                val cooldownMs = cooldownSeconds * 1000L
-                if (currentTime - lastExceededAlertTimeMs >= cooldownMs) {
-                    val message = "Slow down. Speed limit exceeded."
+        if (hasCameraAhead && cameraZoneId != null) {
+            if (isApproachingOrExceeded) {
+                // In camera zone AND about to break / exceeding limit
+                if (currentTime - lastAlertTimeMs >= cooldownMs || cameraZoneId != lastAnnouncedCameraZoneId) {
+                    val message = "Speed cameras ahead, slow down."
                     speak(message, TextToSpeech.QUEUE_FLUSH)
-                    lastExceededAlertTimeMs = currentTime
+                    lastAlertTimeMs = currentTime
+                    lastAnnouncedCameraZoneId = cameraZoneId
+                    hasApproachingAlertFired = true
+                }
+            } else {
+                // In camera zone AND driving safely within limit: announce once per corridor entry
+                if (cameraZoneId != lastAnnouncedCameraZoneId) {
+                    val message = "Speed cameras ahead, be careful."
+                    speak(message, TextToSpeech.QUEUE_FLUSH)
+                    lastAnnouncedCameraZoneId = cameraZoneId
+                    lastAlertTimeMs = currentTime
                 }
             }
-
-            // Approaching speed limit: Early short warning
-            currentSpeedKmh >= approachingThreshold && currentSpeedKmh < speedLimitKmh -> {
-                if (!hasApproachingAlertFiredInCurrentZone) {
-                    val message = "You are about to cross the speed limit."
-                    speak(message, TextToSpeech.QUEUE_FLUSH)
-                    lastApproachingAlertTimeMs = currentTime
-                    hasApproachingAlertFiredInCurrentZone = true
-                }
+        } else {
+            // Outside camera zones
+            if (cameraZoneId == null) {
+                lastAnnouncedCameraZoneId = null
             }
 
-            // Safely below approaching threshold: reset approaching zone trigger
-            currentSpeedKmh < (approachingThreshold - 2) -> {
-                hasApproachingAlertFiredInCurrentZone = false
+            if (isApproachingOrExceeded) {
+                // About to cross or exceeding limit outside camera zones
+                if (!hasApproachingAlertFired || (currentTime - lastAlertTimeMs >= cooldownMs)) {
+                    val message = "You are about to cross the speed limit, slow down."
+                    speak(message, TextToSpeech.QUEUE_FLUSH)
+                    lastAlertTimeMs = currentTime
+                    hasApproachingAlertFired = true
+                }
+            } else if (currentSpeedKmh < (approachingThreshold - 2)) {
+                // Safely below threshold: reset approaching alert flag
+                hasApproachingAlertFired = false
             }
         }
     }

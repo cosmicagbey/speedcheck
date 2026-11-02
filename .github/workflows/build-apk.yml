@@ -53,17 +53,17 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.3
-          name: "SpeedCheck v1.0.3 (Google Play Closed Testing AAB)"
+          tag_name: v1.0.4
+          name: "SpeedCheck v1.0.4 (Google Play Closed Testing AAB)"
           body: |
-            ## 🇬🇭 SpeedCheck v1.0.3 - Google Play Release
+            ## 🇬🇭 SpeedCheck v1.0.4 - Google Play Release
 
             This release provides the official **`SpeedCheck.aab`** (Android App Bundle) signed with the release upload keystore for the **Google Play Console Closed Testing** track.
 
             ### 📦 Download Bundle:
-            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing** (Version `1.0.3`, Build `4`).
+            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing** (Version `1.0.4`, Build `5`).
 
-            ### 🚀 What's New:
+            ### 🚀 What's New in v1.0.4:
             * **🗣️ Reduced & Contextual Voice Speech (No Overlaps)**:
               * Outside camera zones (approaching or exceeding): *"You are about to cross the speed limit, slow down."*
               * Approaching camera zone (safe speed): *"Speed cameras ahead, be careful."*

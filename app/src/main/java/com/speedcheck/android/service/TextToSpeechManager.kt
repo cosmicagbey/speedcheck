@@ -10,6 +10,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import android.util.Log
+import com.speedcheck.android.data.AlertMode
 import java.util.Locale
 
 /**
@@ -191,13 +192,15 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
     }
 
     /**
-     * Checks vehicle speed and triggers proactive, unified voice alerts with anti-spam cooldown:
+     * Checks vehicle speed and triggers proactive, unified voice or vibration alerts with anti-spam cooldown:
      * - Outside speed camera zone & approaching/breaking limit:
      *   "You are about to cross the speed limit, slow down."
      * - In location with known speed camera & driving within safe limit:
      *   "Speed cameras ahead, be careful." (announced once upon entering zone)
      * - In location with known speed camera & approaching/breaking limit:
      *   "Speed cameras ahead, slow down." (with cooldown)
+     * - In VIBRATE mode: Triggers short bursts each second for 4 seconds in place of speech.
+     * - In MUTE mode: Completely silent.
      * - Stationary or walking (< 8 km/h): Suppressed completely to prevent false triggers.
      */
     fun processSpeedAlert(
@@ -206,11 +209,21 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
         approachingOffsetKmh: Int,
         cooldownSeconds: Int,
         hasCameraAhead: Boolean = false,
-        cameraZoneId: String? = null
+        cameraZoneId: String? = null,
+        alertMode: AlertMode = AlertMode.SOUND,
+        onVibrateAlert: (() -> Unit)? = null
     ) {
-        // Suppress voice alerts when stationary or walking
-        if (currentSpeedKmh < 8.0f) {
+        // Suppress voice/vibrate alerts when stationary or walking, or if muted
+        if (currentSpeedKmh < 8.0f || alertMode == AlertMode.MUTE) {
             return
+        }
+
+        fun dispatchAlert(message: String) {
+            when (alertMode) {
+                AlertMode.SOUND -> speak(message, TextToSpeech.QUEUE_FLUSH)
+                AlertMode.VIBRATE -> onVibrateAlert?.invoke()
+                AlertMode.MUTE -> { /* muted */ }
+            }
         }
 
         val currentTime = System.currentTimeMillis()
@@ -222,8 +235,7 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
             if (isApproachingOrExceeded) {
                 // In camera zone AND about to break / exceeding limit
                 if (currentTime - lastAlertTimeMs >= cooldownMs || cameraZoneId != lastAnnouncedCameraZoneId) {
-                    val message = "Speed cameras ahead, slow down."
-                    speak(message, TextToSpeech.QUEUE_FLUSH)
+                    dispatchAlert("Speed cameras ahead, slow down.")
                     lastAlertTimeMs = currentTime
                     lastAnnouncedCameraZoneId = cameraZoneId
                     hasApproachingAlertFired = true
@@ -231,8 +243,7 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
             } else {
                 // In camera zone AND driving safely within limit: announce once per corridor entry
                 if (cameraZoneId != lastAnnouncedCameraZoneId) {
-                    val message = "Speed cameras ahead, be careful."
-                    speak(message, TextToSpeech.QUEUE_FLUSH)
+                    dispatchAlert("Speed cameras ahead, be careful.")
                     lastAnnouncedCameraZoneId = cameraZoneId
                     lastAlertTimeMs = currentTime
                 }
@@ -246,8 +257,7 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
             if (isApproachingOrExceeded) {
                 // About to cross or exceeding limit outside camera zones
                 if (!hasApproachingAlertFired || (currentTime - lastAlertTimeMs >= cooldownMs)) {
-                    val message = "You are about to cross the speed limit, slow down."
-                    speak(message, TextToSpeech.QUEUE_FLUSH)
+                    dispatchAlert("You are about to cross the speed limit, slow down.")
                     lastAlertTimeMs = currentTime
                     hasApproachingAlertFired = true
                 }

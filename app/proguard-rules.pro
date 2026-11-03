@@ -39,6 +39,10 @@
 -keep interface com.google.android.gms.location.** { *; }
 -dontwarn com.google.android.gms.**
 
+# Google Play Core In-App Updates
+-keep class com.google.android.play.core.** { *; }
+-dontwarn com.google.android.play.core.**
+
 # Android TextToSpeech
 -keep class android.speech.tts.** { *; }
 

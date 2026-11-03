@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
@@ -34,15 +35,19 @@ import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.SettingsVoice
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -55,6 +60,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,14 +74,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.speedcheck.android.data.AlertMode
 import com.speedcheck.android.data.PreferencesRepository
 import com.speedcheck.android.data.UserPreferences
 import com.speedcheck.android.service.SpeedCameraDetector
 import com.speedcheck.android.service.TextToSpeechManager
 import com.speedcheck.android.theme.AccentCyan
 import com.speedcheck.android.theme.GhanaGold
+import com.speedcheck.android.theme.SpeedExceededRed
 import com.speedcheck.android.theme.SpeedSafeGreen
 import com.speedcheck.android.ui.components.BatteryOptimizationCard
+import com.speedcheck.android.util.InAppUpdateManager
+import com.speedcheck.android.util.InAppUpdateStatus
+import com.speedcheck.android.util.VibrationManager
 import kotlinx.coroutines.launch
 
 /**
@@ -93,6 +104,10 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val repository = remember { PreferencesRepository.getInstance(context) }
     val ttsManager = remember { TextToSpeechManager(context) }
+    val vibrationManager = remember { VibrationManager(context) }
+    val updateManager = remember { InAppUpdateManager.getInstance(context) }
+    val updateStatus by updateManager.updateStatus.collectAsState()
+    val activity = context as? android.app.Activity
 
     var customLimitInput by remember(userPreferences.speedLimitKmh) {
         mutableStateOf(userPreferences.speedLimitKmh.toString())
@@ -336,38 +351,47 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // SECTION 4: Voice Alerts & Text-to-Speech
-            SettingsSectionHeader(title = "VOICE ALERTS & TEXT-TO-SPEECH", icon = Icons.Default.RecordVoiceOver)
+            // SECTION 4: Voice Alerts & Haptic Vibration Feedback
+            SettingsSectionHeader(title = "ALERT DELIVERY & VOICE SETTINGS", icon = Icons.Default.RecordVoiceOver)
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Enable Voice Alerts",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                            Text(
-                                text = "Spoken camera announcements and speed warnings",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    Text(
+                        text = "Alert Delivery Mode:",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            AlertMode.SOUND to "Sound (Voice)",
+                            AlertMode.VIBRATE to "Vibrate (4s)",
+                            AlertMode.MUTE to "Mute"
+                        ).forEach { (mode, label) ->
+                            FilterChip(
+                                selected = userPreferences.alertMode == mode,
+                                onClick = {
+                                    scope.launch { repository.updateAlertMode(mode) }
+                                    if (mode == AlertMode.VIBRATE) {
+                                        vibrationManager.triggerModeSwitchTick()
+                                    }
+                                },
+                                label = { Text(label) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = if (mode == AlertMode.VIBRATE) GhanaGold else SpeedSafeGreen,
+                                    selectedLabelColor = Color.Black
+                                )
                             )
                         }
-                        Switch(
-                            checked = userPreferences.voiceAlertsEnabled,
-                            onCheckedChange = { scope.launch { repository.updateVoiceAlertsEnabled(it) } }
-                        )
                     }
 
-                    if (userPreferences.voiceAlertsEnabled) {
-                        Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    if (userPreferences.alertMode == AlertMode.SOUND) {
                         Text(
                             text = "Voice Style:",
                             fontSize = 13.sp,
@@ -392,54 +416,74 @@ fun SettingsScreen(
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))
-                        Text(
-                            text = "Alert Repeat Cooldown (Prevents Spam):",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
+                    }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            cooldownOptions.forEach { seconds ->
-                                FilterChip(
-                                    selected = userPreferences.alertCooldownSeconds == seconds,
-                                    onClick = {
-                                        scope.launch { repository.updateAlertCooldown(seconds) }
-                                    },
-                                    label = { Text("${seconds}s") },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = SpeedSafeGreen,
-                                        selectedLabelColor = Color.Black
-                                    )
+                    Text(
+                        text = "Alert Repeat Cooldown (Prevents Spam):",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        cooldownOptions.forEach { seconds ->
+                            FilterChip(
+                                selected = userPreferences.alertCooldownSeconds == seconds,
+                                onClick = {
+                                    scope.launch { repository.updateAlertCooldown(seconds) }
+                                },
+                                label = { Text("${seconds}s") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = SpeedSafeGreen,
+                                    selectedLabelColor = Color.Black
                                 )
-                            }
+                            )
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                        // Test Voice Button
-                        OutlinedButton(
-                            onClick = {
+                    // Test Alert Button (Voice or Vibration based on mode)
+                    OutlinedButton(
+                        onClick = {
+                            if (userPreferences.alertMode == AlertMode.VIBRATE) {
+                                vibrationManager.triggerAlertVibration()
+                            } else {
                                 ttsManager.updateVoiceConfig(
                                     gender = userPreferences.voiceGender,
                                     rate = userPreferences.speechRate,
                                     pitch = userPreferences.speechPitch
                                 )
                                 ttsManager.speak("Speed cameras ahead, slow down. You are about to cross the speed limit, slow down.")
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Test Voice Alerts Now")
-                        }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = if (userPreferences.alertMode == AlertMode.VIBRATE) Icons.Default.Vibration else Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (userPreferences.alertMode == AlertMode.VIBRATE) "Test 4s Vibration Alert Now" else "Test Voice Alerts Now")
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // SECTION 5: Battery Optimization Status
+            // SECTION 5: In-App Updates
+            SettingsSectionHeader(title = "IN-APP UPDATES", icon = Icons.Default.SystemUpdate)
+            InAppUpdateCard(
+                updateStatus = updateStatus,
+                onCheckForUpdates = { updateManager.checkForUpdates() },
+                onStartUpdate = { activity?.let { updateManager.startUpdate(it, immediate = false) } },
+                onCompleteUpdate = { updateManager.completeUpdate() }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // SECTION 6: Battery Optimization Status
             SettingsSectionHeader(title = "BATTERY MANAGEMENT", icon = Icons.Default.Info)
             BatteryOptimizationCard()
 
@@ -484,6 +528,191 @@ fun SettingsScreen(
     }
 }
 
+
+
+@Composable
+private fun InAppUpdateCard(
+    updateStatus: InAppUpdateStatus,
+    onCheckForUpdates: () -> Unit,
+    onStartUpdate: () -> Unit,
+    onCompleteUpdate: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SystemUpdate,
+                    contentDescription = null,
+                    tint = GhanaGold,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "In-App Updates",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Receive & install app updates directly without opening Play Store",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            when (updateStatus) {
+                is InAppUpdateStatus.Checking -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = GhanaGold
+                        )
+                        Text(
+                            text = "Checking for new releases...",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+                is InAppUpdateStatus.UpdateAvailable -> {
+                    Text(
+                        text = "🎉 New Update Available! (Build ${updateStatus.availableVersionCode})",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = SpeedSafeGreen
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = onStartUpdate,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SpeedSafeGreen,
+                            contentColor = Color.Black
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Download & Install In-App", fontWeight = FontWeight.Bold)
+                    }
+                }
+                is InAppUpdateStatus.Downloading -> {
+                    val percent = if (updateStatus.totalBytes > 0) {
+                        ((updateStatus.bytesDownloaded * 100) / updateStatus.totalBytes).toInt()
+                    } else 0
+                    Column {
+                        Text(
+                            text = "Downloading in-app ($percent%)...",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LinearProgressIndicator(
+                            progress = { if (updateStatus.totalBytes > 0) updateStatus.bytesDownloaded.toFloat() / updateStatus.totalBytes else 0f },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = GhanaGold
+                        )
+                    }
+                }
+                is InAppUpdateStatus.Downloaded -> {
+                    Column {
+                        Text(
+                            text = "✅ Update downloaded and ready to apply!",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SpeedSafeGreen
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = onCompleteUpdate,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = GhanaGold,
+                                contentColor = Color.Black
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Restart App to Complete Update", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                is InAppUpdateStatus.UpToDate -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Installed: v${updateStatus.currentVersion} (Build ${updateStatus.currentVersionCode})",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "You are using the latest version",
+                                fontSize = 12.sp,
+                                color = SpeedSafeGreen
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = onCheckForUpdates,
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text("Check Now", fontSize = 12.sp)
+                        }
+                    }
+                }
+                is InAppUpdateStatus.Error -> {
+                    Column {
+                        Text(
+                            text = updateStatus.message,
+                            fontSize = 12.sp,
+                            color = SpeedExceededRed
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(onClick = onCheckForUpdates) {
+                            Text("Try Again")
+                        }
+                    }
+                }
+                is InAppUpdateStatus.Idle -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "SpeedCheck v1.0.4",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Button(
+                            onClick = onCheckForUpdates,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = GhanaGold,
+                                contentColor = Color.Black
+                            )
+                        ) {
+                            Text("Check for Updates")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun SettingsSectionHeader(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Row(
@@ -506,3 +735,5 @@ private fun SettingsSectionHeader(title: String, icon: androidx.compose.ui.graph
         )
     }
 }
+
+

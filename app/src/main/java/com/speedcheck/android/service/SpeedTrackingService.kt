@@ -47,6 +47,7 @@ class SpeedTrackingService : Service() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var notificationHelper: NotificationHelper
     private lateinit var ttsManager: TextToSpeechManager
+    private lateinit var vibrationManager: com.speedcheck.android.util.VibrationManager
     private lateinit var preferencesRepository: PreferencesRepository
     private lateinit var speedLogRepository: SpeedLogRepository
 
@@ -83,6 +84,7 @@ class SpeedTrackingService : Service() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         notificationHelper = NotificationHelper(this)
         ttsManager = TextToSpeechManager(this)
+        vibrationManager = com.speedcheck.android.util.VibrationManager(this)
         preferencesRepository = PreferencesRepository.getInstance(this)
         speedLogRepository = SpeedLogRepository.getInstance(this)
 
@@ -244,15 +246,15 @@ class SpeedTrackingService : Service() {
         val alertStatus = evaluateSpeedAlert(speedKmh, effectiveLimit)
         _alertStatusFlow.value = alertStatus
 
-        // Unified Contextual Voice Prompts:
-        // - Outside camera zones & approaching/breaking limit: "You are about to cross the speed limit, slow down"
+        // Unified Contextual Voice & Vibration Prompts:
+        // - On a known road without camera & approaching/breaking limit: "You are about to cross the speed limit, slow down"
         // - In camera zone & safe speed: "Speed cameras ahead, be careful"
         // - In camera zone & approaching/breaking limit: "Speed cameras ahead, slow down"
-        if (currentPreferences.voiceAlertsEnabled && currentMonitoringState == MonitoringState.ACTIVE_MONITORING) {
-            val hasCameraAhead = currentPreferences.autoDetectSpeedLimit &&
-                    detectionResult.activeZone != null &&
-                    detectionResult.isMovingTowardsCamera
-            val cameraZoneId = if (hasCameraAhead) detectionResult.activeZone.id else null
+        // - In VIBRATE mode: short burst each second for 4 seconds in place of sound
+        if (currentPreferences.alertMode != com.speedcheck.android.data.AlertMode.MUTE &&
+            currentMonitoringState == MonitoringState.ACTIVE_MONITORING) {
+            val hasCameraAhead = detectionResult.hasCameraAhead
+            val cameraZoneId = if (hasCameraAhead) detectionResult.activeZone?.id else null
 
             ttsManager.processSpeedAlert(
                 currentSpeedKmh = speedKmh,
@@ -260,7 +262,11 @@ class SpeedTrackingService : Service() {
                 approachingOffsetKmh = currentPreferences.approachingOffsetKmh,
                 cooldownSeconds = currentPreferences.alertCooldownSeconds,
                 hasCameraAhead = hasCameraAhead,
-                cameraZoneId = cameraZoneId
+                cameraZoneId = cameraZoneId,
+                alertMode = currentPreferences.alertMode,
+                onVibrateAlert = {
+                    vibrationManager.triggerAlertVibration()
+                }
             )
         }
 
@@ -295,6 +301,8 @@ class SpeedTrackingService : Service() {
         if (isNewZone || isOverspeedAlert || isPeriodicHeartbeat) {
             val place = if (zone != null) {
                 "${zone.name} (${zone.roadName})"
+            } else if (detectionResult.detectedRoadName != null) {
+                detectionResult.detectedRoadName
             } else if (speedKmh >= 65f) {
                 "Ghana National Highway Corridor"
             } else {
@@ -467,6 +475,7 @@ class SpeedTrackingService : Service() {
         Log.d(TAG, "SpeedTrackingService onDestroy")
         fusedLocationClient.removeLocationUpdates(locationCallback)
         ttsManager.shutdown()
+        vibrationManager.cancel()
         preferencesJob?.cancel()
         serviceScope.cancel()
         _monitoringStateFlow.value = MonitoringState.STOPPED

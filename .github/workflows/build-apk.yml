@@ -53,17 +53,27 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.4
-          name: "SpeedCheck v1.0.4 (Google Play Closed Testing AAB)"
+          tag_name: v1.0.5
+          name: "SpeedCheck v1.0.5 (Google Play Closed Testing AAB)"
           body: |
-            ## 🇬🇭 SpeedCheck v1.0.4 - Google Play Release
+            ## 🇬🇭 SpeedCheck v1.0.5 - Google Play Release
 
             This release provides the official **`SpeedCheck.aab`** (Android App Bundle) signed with the release upload keystore for the **Google Play Console Closed Testing** track.
 
             ### 📦 Download Bundle:
-            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing** (Version `1.0.4`, Build `5`).
+            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing** (Version `1.0.5`, Build `6`).
 
-            ### 🚀 What's New in v1.0.4:
+            ### 🚀 What's New in v1.0.5:
+            * **🗺️ Dual-Layer Road-Aware Speed Limits & Camera Detection**:
+              * Added over 50 registered road and highway segments across Accra, Kumasi, Tema, and national corridors (Tema Motorway @ 100 km/h, N1 Highway @ 80 km/h, urban town corridors @ 50 km/h, school zones @ 30 km/h).
+              * Expanded automated camera database to 27 MTTD & crowd-sourced zones across Greater Accra and Ashanti regions.
+              * Road name correlation on dashboard radar card and trip evidence logs.
+            * **📲 In-App Updates**:
+              * Official Google Play In-App Updates integration (`AppUpdateManager`). Users receive, download, and install updates directly within the app without having to manually open the Play Store.
+              * Dedicated "In-App Updates" card in the Settings tab with "Check for Updates" and status display.
+            * **📳 Sound, Vibrate & Mute Quick Toggle**:
+              * Home screen audio icon cycles in order: **Sound ON (🔊) -> Vibrate (📳) -> Mute (🔇) -> Sound ON (🔊)**.
+              * For users who prefer vibration, alerts trigger short haptic bursts each second for 4 seconds in place of spoken voice warnings.
             * **🗣️ Reduced & Contextual Voice Speech (No Overlaps)**:
               * Outside camera zones (approaching or exceeding): *"You are about to cross the speed limit, slow down."*
               * Approaching camera zone (safe speed): *"Speed cameras ahead, be careful."*
@@ -77,15 +87,6 @@ jobs:
               * Light theme is strictly confined to the in-app screens and never bleeds into or washes out the phone's notification bar.
             * **🛡️ DEX Code Optimization & R8 Obfuscation**: Enabled `isMinifyEnabled = true` with comprehensive ProGuard/R8 rules.
             * **📦 Upgraded Fragment Dependency**: Guaranteed `1.8.6` across the dependency graph.
-              * **N1 Highway near Baah Junction / Bar Junction** (80 km/h)
-              * **Kawukudi (Obasanjo Highway)** (50 km/h)
-              * **Kanda Highway** (50 km/h)
-            * **🗣️ Spoken Voice Alerts (TTS)**:
-              * Camera ahead voice prompt: *"Speed camera ahead on [Zone Name]. Limit is [X] kilometers per hour."*
-              * Early warning approaching alert: *"Approaching [X] kilometers per hour."*
-              * Immediate over-speed alert: *"Caution. Speed is over your limit of [X] kilometers per hour. Please slow down."*
-            * **🔋 Silent Background Operation**: Works with the screen locked or in your pocket. Auto-pauses when stationary to conserve battery.
-            * **🔒 Privacy & Policy**: In-app Privacy Policy dialog and zero tracking/ad IDs.
 
             ### 🌐 Google Play Console Closed Testing Instructions:
             1. Download **`SpeedCheck.aab`** below.

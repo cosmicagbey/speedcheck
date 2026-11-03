@@ -8,6 +8,7 @@ import com.speedcheck.android.service.SpeedCameraDetector
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 /**
@@ -21,6 +22,7 @@ class SpeedCheckUnitTest {
         val prefs = UserPreferences()
         assertEquals(80, prefs.speedLimitKmh)
         assertEquals(5, prefs.approachingOffsetKmh)
+        assertEquals(com.speedcheck.android.data.AlertMode.SOUND, prefs.alertMode)
         assertTrue(prefs.voiceAlertsEnabled)
         assertTrue(prefs.approachingAlertEnabled)
         assertTrue(prefs.autoDetectSpeedLimit)
@@ -118,7 +120,7 @@ class SpeedCheckUnitTest {
     @Test
     fun ghanaSpeedCameras_containAllRequiredLocations() {
         val cameras = SpeedCameraDetector.GHANA_SPEED_CAMERAS
-        assertEquals(5, cameras.size)
+        assertEquals(27, cameras.size)
 
         // 1. Borteyman Sports Facility T-Junction
         val borteyman = cameras.find { it.id == "borteyman_junction" }
@@ -149,6 +151,31 @@ class SpeedCheckUnitTest {
         assertNotNull(kanda)
         assertEquals(50, kanda?.speedLimitKmh)
         assertTrue(kanda?.name?.contains("Kanda") == true)
+
+        // 6. Densu River Bridge near Weija (N1 Accra-Cape Coast)
+        val weija = cameras.find { it.id == "n1_densu_weija" }
+        assertNotNull(weija)
+        assertEquals(80, weija?.speedLimitKmh)
+
+        // 7. Ofankor Barrier / Taifa (N6)
+        val ofankor = cameras.find { it.id == "ofankor_taifa_barrier" }
+        assertNotNull(ofankor)
+        assertEquals(80, ofankor?.speedLimitKmh)
+
+        // 8. East Legon - Madina 30 km/h School Zone
+        val eastLegonMadina = cameras.find { it.id == "east_legon_madina_30kmh" }
+        assertNotNull(eastLegonMadina)
+        assertEquals(30, eastLegonMadina?.speedLimitKmh)
+
+        // 9. Kumasi N6 Bomso / Ayigya / KNUST Gate
+        val kumasiKnust = cameras.find { it.id == "kumasi_n6_bomso_ayigya" }
+        assertNotNull(kumasiKnust)
+        assertEquals(50, kumasiKnust?.speedLimitKmh)
+
+        // 10. Kumasi Ayeduase (30 km/h campus zone)
+        val ayeduase = cameras.find { it.id == "kumasi_knust_ayeduase" }
+        assertNotNull(ayeduase)
+        assertEquals(30, ayeduase?.speedLimitKmh)
     }
 
     @Test
@@ -214,5 +241,77 @@ class SpeedCheckUnitTest {
         assertEquals(0f, clampSpeed(7.9f), 0.001f) // Fast walk / pocket wobble
         assertEquals(10f, clampSpeed(10f), 0.001f) // Vehicle moving
         assertEquals(50f, clampSpeed(50f), 0.001f) // Vehicle driving
+    }
+
+    @Test
+    fun alertMode_cyclesInStrictOrder() {
+        val sound = com.speedcheck.android.data.AlertMode.SOUND
+        val vibrate = sound.next()
+        val mute = vibrate.next()
+        val backToSound = mute.next()
+
+        org.junit.Assert.assertEquals(com.speedcheck.android.data.AlertMode.VIBRATE, vibrate)
+        org.junit.Assert.assertEquals(com.speedcheck.android.data.AlertMode.MUTE, mute)
+        org.junit.Assert.assertEquals(com.speedcheck.android.data.AlertMode.SOUND, backToSound)
+    }
+
+    @Test
+    fun ghanaSpeedLimitZones_containMajorRoads() {
+        val zones = SpeedCameraDetector.GHANA_SPEED_LIMIT_ZONES
+        // Verify we have a substantial road database
+        assertTrue("Should have at least 50 speed limit zones", zones.size >= 50)
+
+        // Verify key roads exist
+        val temaMotorway = zones.filter { it.roadName.contains("Tema Motorway") }
+        assertTrue("Tema Motorway should have multiple segments", temaMotorway.size >= 2)
+        assertTrue("Tema Motorway should be 100 km/h", temaMotorway.all { it.speedLimitKmh == 100 })
+
+        // University of Ghana campus should be 30 km/h school zone
+        val legonCampus = zones.find { it.id == "legon_university_zone" }
+        assertNotNull(legonCampus)
+        assertEquals(30, legonCampus?.speedLimitKmh)
+        assertEquals("School Zone", legonCampus?.areaType)
+
+        // Spintex Road should be 50 km/h urban
+        val spintex = zones.filter { it.roadName.contains("Spintex") }
+        assertTrue("Spintex Road should have segments", spintex.isNotEmpty())
+        assertTrue("Spintex Road should be 50 km/h", spintex.all { it.speedLimitKmh == 50 })
+
+        // KNUST campus should be 30 km/h
+        val knustCampus = zones.find { it.id == "kumasi_knust_campus" }
+        assertNotNull(knustCampus)
+        assertEquals(30, knustCampus?.speedLimitKmh)
+    }
+
+    @Test
+    fun dualLayerDetection_cameraZoneTakesPriorityOverSpeedLimitZone() {
+        // Camera zones and speed limit zones should be separate lists
+        val cameraIds = SpeedCameraDetector.GHANA_SPEED_CAMERAS.map { it.id }.toSet()
+        val limitIds = SpeedCameraDetector.GHANA_SPEED_LIMIT_ZONES.map { it.id }.toSet()
+
+        // No overlap in IDs between the two layers
+        val overlap = cameraIds.intersect(limitIds)
+        assertTrue("Camera and speed limit zone IDs should not overlap: $overlap", overlap.isEmpty())
+    }
+
+    @Test
+    fun cameraZones_allHaveRoadNames() {
+        SpeedCameraDetector.GHANA_SPEED_CAMERAS.forEach { camera ->
+            assertFalse(
+                "Camera ${camera.id} should have a non-empty roadName",
+                camera.roadName.isBlank()
+            )
+        }
+    }
+
+    @Test
+    fun speedLimitZones_allHaveValidAreaTypes() {
+        val validAreaTypes = setOf("Urban", "Highway", "Motorway", "School Zone", "Residential")
+        SpeedCameraDetector.GHANA_SPEED_LIMIT_ZONES.forEach { zone ->
+            assertTrue(
+                "Zone ${zone.id} has invalid areaType: ${zone.areaType}",
+                zone.areaType in validAreaTypes
+            )
+        }
     }
 }

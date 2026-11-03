@@ -1,6 +1,28 @@
 package com.speedcheck.android.data
 
 /**
+ * Alert delivery mode for driving warnings:
+ * - SOUND: Voice prompts spoken aloud via TTS.
+ * - VIBRATE: Short haptic vibration bursts each second for 4 seconds in place of voice.
+ * - MUTE: Silent visual-only warnings on HUD.
+ */
+enum class AlertMode {
+    SOUND,
+    VIBRATE,
+    MUTE;
+
+    /**
+     * Cycles to the next alert mode in strict order:
+     * SOUND -> VIBRATE -> MUTE -> SOUND
+     */
+    fun next(): AlertMode = when (this) {
+        SOUND -> VIBRATE
+        VIBRATE -> MUTE
+        MUTE -> SOUND
+    }
+}
+
+/**
  * Data class representing user configuration and settings.
  */
 data class UserPreferences(
@@ -13,7 +35,10 @@ data class UserPreferences(
      */
     val approachingOffsetKmh: Int = 5,
 
-    /** Whether voice alerts are enabled. */
+    /** Alert delivery mode: SOUND (TTS voice), VIBRATE (4s burst), or MUTE. Default is SOUND. */
+    val alertMode: AlertMode = AlertMode.SOUND,
+
+    /** Whether voice alerts are enabled (synced with alertMode == AlertMode.SOUND). */
     val voiceAlertsEnabled: Boolean = true,
 
     /** Whether the approaching alert (e.g. at 25 km/h for limit 30) is enabled. */

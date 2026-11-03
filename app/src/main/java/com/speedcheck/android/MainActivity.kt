@@ -37,6 +37,10 @@ class MainActivity : ComponentActivity() {
 
         val repository = PreferencesRepository.getInstance(applicationContext)
 
+        // Silently check for in-app updates from Google Play
+        val updateManager = com.speedcheck.android.util.InAppUpdateManager.getInstance(applicationContext)
+        updateManager.checkForUpdates()
+
         setContent {
             val userPreferences by repository.userPreferencesFlow.collectAsState(initial = UserPreferences())
 

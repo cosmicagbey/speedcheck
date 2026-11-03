@@ -11,8 +11,8 @@ android {
         applicationId = "com.speedcheck.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.0.4"
+        versionCode = 6
+        versionName = "1.0.5"
     }
 
     signingConfigs {
@@ -83,8 +83,10 @@ dependencies {
   // DataStore Preferences
   implementation(libs.androidx.datastore.preferences)
 
-  // Google Play Services Location
+  // Google Play Services Location & In-App Updates
   implementation(libs.play.services.location)
+  implementation(libs.play.app.update)
+  implementation(libs.play.app.update.ktx)
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   // Instrumented tests

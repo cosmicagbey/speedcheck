@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -104,6 +105,7 @@ fun DashboardScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val repository = remember { PreferencesRepository.getInstance(context) }
+    val vibrationManager = remember { com.speedcheck.android.util.VibrationManager(context) }
 
     // Live state collected from the foreground service
     val currentSpeed by SpeedTrackingService.currentSpeedFlow.collectAsState()
@@ -145,11 +147,15 @@ fun DashboardScreen(
         ) {
             // Top Bar with App Logo
             DashboardTopBar(
-                isVoiceMuted = !userPreferences.voiceAlertsEnabled,
+                alertMode = userPreferences.alertMode,
                 isDarkMode = userPreferences.isDarkMode,
-                onToggleMute = {
+                onCycleAlertMode = {
+                    val nextMode = userPreferences.alertMode.next()
                     scope.launch {
-                        repository.updateVoiceAlertsEnabled(!userPreferences.voiceAlertsEnabled)
+                        repository.updateAlertMode(nextMode)
+                    }
+                    if (nextMode == com.speedcheck.android.data.AlertMode.VIBRATE) {
+                        vibrationManager.triggerModeSwitchTick()
                     }
                 },
                 onToggleTheme = onToggleTheme
@@ -272,30 +278,34 @@ fun DashboardScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (cameraDetection.activeZone != null)
+                        containerColor = if (cameraDetection.hasCameraAhead)
                             GhanaGold.copy(alpha = 0.15f)
+                        else if (cameraDetection.detectedRoadName != null)
+                            SpeedSafeGreen.copy(alpha = 0.10f)
                         else
                             MaterialTheme.colorScheme.surface
                     ),
                     shape = RoundedCornerShape(16.dp),
-                    border = if (cameraDetection.activeZone != null)
+                    border = if (cameraDetection.hasCameraAhead)
                         androidx.compose.foundation.BorderStroke(1.dp, GhanaGold.copy(alpha = 0.6f))
+                    else if (cameraDetection.detectedRoadName != null)
+                        androidx.compose.foundation.BorderStroke(1.dp, SpeedSafeGreen.copy(alpha = 0.4f))
                     else null
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = if (cameraDetection.activeZone != null) Icons.Default.CameraAlt else Icons.Default.GpsFixed,
+                                imageVector = if (cameraDetection.hasCameraAhead) Icons.Default.CameraAlt else Icons.Default.GpsFixed,
                                 contentDescription = null,
-                                tint = if (cameraDetection.activeZone != null) GhanaGold else SpeedSafeGreen,
+                                tint = if (cameraDetection.hasCameraAhead) GhanaGold else SpeedSafeGreen,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (cameraDetection.activeZone != null) "AUTOMATED CAMERA RADAR" else "AUTO-DETECT SPEED LIMIT",
+                                text = if (cameraDetection.hasCameraAhead) "SPEED CAMERA ZONE" else "ROAD SPEED LIMIT",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (cameraDetection.activeZone != null) GhanaGold else SpeedSafeGreen,
+                                color = if (cameraDetection.hasCameraAhead) GhanaGold else SpeedSafeGreen,
                                 letterSpacing = 1.sp
                             )
                         }
@@ -306,14 +316,22 @@ fun DashboardScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        if (cameraDetection.activeZone != null) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Camera zone enforcement: Speed limit automatically set to ${cameraDetection.recommendedLimitKmh} km/h",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
+                        // Show road name and area type context
+                        val contextLine = buildString {
+                            if (cameraDetection.hasCameraAhead) {
+                                append("📷 Camera zone enforcement: ")
+                            }
+                            append("Speed limit automatically set to ${cameraDetection.recommendedLimitKmh} km/h")
+                            if (cameraDetection.areaType.isNotEmpty()) {
+                                append(" (${cameraDetection.areaType})")
+                            }
                         }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = contextLine,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
                     }
                 }
             }
@@ -408,9 +426,9 @@ fun DashboardScreen(
 
 @Composable
 private fun DashboardTopBar(
-    isVoiceMuted: Boolean,
+    alertMode: com.speedcheck.android.data.AlertMode,
     isDarkMode: Boolean,
-    onToggleMute: () -> Unit,
+    onCycleAlertMode: () -> Unit,
     onToggleTheme: () -> Unit
 ) {
     Row(
@@ -460,11 +478,28 @@ private fun DashboardTopBar(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onToggleMute) {
+            IconButton(onClick = onCycleAlertMode) {
+                val (icon, tint, desc) = when (alertMode) {
+                    com.speedcheck.android.data.AlertMode.SOUND -> Triple(
+                        Icons.AutoMirrored.Filled.VolumeUp,
+                        SpeedSafeGreen,
+                        "Sound Alerts Active (Tap for Vibrate)"
+                    )
+                    com.speedcheck.android.data.AlertMode.VIBRATE -> Triple(
+                        Icons.Default.Vibration,
+                        GhanaGold,
+                        "Vibrate Alerts Active (Tap for Mute)"
+                    )
+                    com.speedcheck.android.data.AlertMode.MUTE -> Triple(
+                        Icons.AutoMirrored.Filled.VolumeOff,
+                        SpeedExceededRed,
+                        "Alerts Muted (Tap for Sound)"
+                    )
+                }
                 Icon(
-                    imageVector = if (isVoiceMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = if (isVoiceMuted) "Unmute Voice" else "Mute Voice",
-                    tint = if (isVoiceMuted) SpeedExceededRed else SpeedSafeGreen
+                    imageVector = icon,
+                    contentDescription = desc,
+                    tint = tint
                 )
             }
             IconButton(onClick = onToggleTheme) {

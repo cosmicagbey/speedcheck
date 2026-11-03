@@ -54,7 +54,328 @@ const GHANA_SPEED_CAMERAS = [
     speedLimitKmh: 50,
     radiusMeters: 1200,
     description: "Automated camera monitoring the Kanda Highway arterial corridor."
+  },
+  // Central / East Accra & Coastal Corridors
+  {
+    id: "liberation_nehru_jct",
+    name: "Liberation Rd (Jawaharlal Nehru / Liberation Link)",
+    roadName: "Liberation Road (N4)",
+    latitude: 5.5882,
+    longitude: -0.1818,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "Speed camera monitoring Liberation Rd near Airport City and Jawaharlal Nehru Rd junction."
+  },
+  {
+    id: "obasanjo_liberation_end",
+    name: "Obasanjo Highway (37 / Liberation End)",
+    roadName: "Olusegun Obasanjo Way",
+    latitude: 5.5862,
+    longitude: -0.1865,
+    speedLimitKmh: 50,
+    radiusMeters: 1100,
+    description: "Enforcing 50 km/h limit on the eastern end of Obasanjo Way near 37 Interchange."
+  },
+  {
+    id: "cantonments_road",
+    name: "Cantonments Road (Osu / Cantonments)",
+    roadName: "Cantonments Road",
+    latitude: 5.5565,
+    longitude: -0.1812,
+    speedLimitKmh: 50,
+    radiusMeters: 1000,
+    description: "Automated speed monitoring on the Cantonments / Osu arterial route."
+  },
+  {
+    id: "ring_road_nima_kanda",
+    name: "Ring Road Central (Nima / Kanda Overpass)",
+    roadName: "Ring Road Central",
+    latitude: 5.5742,
+    longitude: -0.1982,
+    speedLimitKmh: 50,
+    radiusMeters: 1100,
+    description: "Automated radar enforcing urban speed along Ring Road Central near Nima junction."
+  },
+  {
+    id: "teshie_link",
+    name: "Teshie Link Corridor",
+    roadName: "Teshie Link",
+    latitude: 5.5905,
+    longitude: -0.0982,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "Speed enforcement camera along Teshie Link connecting Spintex to Beach Road."
+  },
+  {
+    id: "laterbiokorshie_star_oil",
+    name: "Laterbiokorshie (Near Star Oil)",
+    roadName: "Link Road / Laterbiokorshie",
+    latitude: 5.5502,
+    longitude: -0.2335,
+    speedLimitKmh: 50,
+    radiusMeters: 1000,
+    description: "Automated camera enforcing 50 km/h urban speed limit near Star Oil."
+  },
+  {
+    id: "n1_densu_weija",
+    name: "N1 Highway (Densu River Bridge / Weija)",
+    roadName: "Accra - Cape Coast Highway (N1)",
+    latitude: 5.5552,
+    longitude: -0.3364,
+    speedLimitKmh: 80,
+    radiusMeters: 1500,
+    description: "High-speed radar camera on the N1 corridor at the Densu River bridge near Weija."
+  },
+  // Northern Stretch & N6 Highway (Accra West to North)
+  {
+    id: "apenkwa_achimota_overhead",
+    name: "Apenkwa / Achimota Overhead",
+    roadName: "George Walker Bush Highway (N1)",
+    latitude: 5.6145,
+    longitude: -0.2225,
+    speedLimitKmh: 80,
+    radiusMeters: 1400,
+    description: "Automated camera monitoring N1 flow at Apenkwa and Achimota interchange."
+  },
+  {
+    id: "abelenkpe_main",
+    name: "Abelenkpe Main Road",
+    roadName: "Abelenkpe Road",
+    latitude: 5.6012,
+    longitude: -0.2085,
+    speedLimitKmh: 50,
+    radiusMeters: 1000,
+    description: "Urban speed camera on the Abelenkpe - Roman Ridge transit road."
+  },
+  {
+    id: "ofankor_taifa_barrier",
+    name: "Ofankor Barrier / Taifa (N6)",
+    roadName: "Accra - Nsawam Highway (N6)",
+    latitude: 5.6565,
+    longitude: -0.2582,
+    speedLimitKmh: 80,
+    radiusMeters: 1500,
+    description: "Radar camera monitoring northbound N6 traffic at the Ofankor Barrier / Taifa junction."
+  },
+  {
+    id: "sowutuom_christian_village",
+    name: "Sowutuom (Pillar 2 / Anyaa Link)",
+    roadName: "Sowutuom Road",
+    latitude: 5.6162,
+    longitude: -0.2692,
+    speedLimitKmh: 50,
+    radiusMeters: 1100,
+    description: "Automated speed enforcement camera along the Sowutuom - Pillar 2 corridor."
+  },
+  {
+    id: "haatso_atomic_madina",
+    name: "Haatso - Atomic - Madina Road",
+    roadName: "Atomic - Haatso Road",
+    latitude: 5.6705,
+    longitude: -0.1872,
+    speedLimitKmh: 50,
+    radiusMeters: 1300,
+    description: "Automated camera monitoring the Haatso, Papao, and Madina Zongo transit stretch."
+  },
+  // East Legon & Adentan Cluster
+  {
+    id: "east_legon_shiashie",
+    name: "East Legon (Shiashie / Lagos Ave)",
+    roadName: "Lagos Avenue",
+    latitude: 5.6265,
+    longitude: -0.1772,
+    speedLimitKmh: 50,
+    radiusMeters: 1100,
+    description: "Camera monitoring the Shiashie entrance into East Legon along Lagos Avenue."
+  },
+  {
+    id: "east_legon_bawaleshie",
+    name: "Bawaleshie / American House (East Legon)",
+    roadName: "Boundary Road",
+    latitude: 5.6372,
+    longitude: -0.1582,
+    speedLimitKmh: 50,
+    radiusMeters: 1100,
+    description: "Speed camera on Boundary Road near Bawaleshie and American House junction."
+  },
+  {
+    id: "adjiringanor_ogbojo",
+    name: "Adjiringanor - Ogbojo Link",
+    roadName: "Adjiringanor Road",
+    latitude: 5.6482,
+    longitude: -0.1385,
+    speedLimitKmh: 50,
+    radiusMeters: 1100,
+    description: "Speed camera monitoring the Adjiringanor and Ogbojo residential arterial."
+  },
+  {
+    id: "east_legon_madina_30kmh",
+    name: "East Legon - Madina Road (30 km/h School Zone)",
+    roadName: "East Legon - Madina Link Road",
+    latitude: 5.6582,
+    longitude: -0.1552,
+    speedLimitKmh: 30,
+    radiusMeters: 1000,
+    description: "Strict 30 km/h automated speed zone in the school and pedestrian crossing zone."
+  },
+  // Kumasi & Ashanti Region (N6 Corridor & Metro)
+  {
+    id: "kumasi_n6_bomso_ayigya",
+    name: "Kumasi N6 (Bomso / Ayigya / KNUST Gate)",
+    roadName: "Kumasi - Accra Highway (N6)",
+    latitude: 6.6852,
+    longitude: -1.5832,
+    speedLimitKmh: 50,
+    radiusMeters: 1300,
+    description: "Automated speed enforcement near KNUST Main Gate, Bomso, and Ayigya on N6."
+  },
+  {
+    id: "kumasi_n6_kentinkrono",
+    name: "Kumasi N6 (Kentinkrono / Nsenie)",
+    roadName: "Kumasi - Accra Highway (N6)",
+    latitude: 6.6972,
+    longitude: -1.5542,
+    speedLimitKmh: 60,
+    radiusMeters: 1400,
+    description: "High-speed camera monitoring eastern entry into Kumasi at Kentinkrono and Nsenie."
+  },
+  {
+    id: "kumasi_anwiankwanta",
+    name: "Anwiankwanta Junction (Kumasi - Obuasi)",
+    roadName: "Kumasi - Obuasi Highway (N10)",
+    latitude: 6.4782,
+    longitude: -1.6372,
+    speedLimitKmh: 80,
+    radiusMeters: 1500,
+    description: "Highway radar camera monitoring approach to Anwiankwanta junction."
+  },
+  {
+    id: "kumasi_asokwa_mall",
+    name: "Kumasi Asokwa (City Mall / Bypass)",
+    roadName: "24th February Road / Asokwa",
+    latitude: 6.6712,
+    longitude: -1.6062,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "Automated urban speed camera near Kumasi City Mall on the Asokwa bypass."
+  },
+  {
+    id: "kumasi_adukrom_asokore_mampong",
+    name: "Kumasi (Adukrom / Asokore Mampong)",
+    roadName: "Asokore Mampong Arterial",
+    latitude: 6.7022,
+    longitude: -1.5952,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "Speed camera monitoring side routes off N6 towards Asokore Mampong and Adukrom."
+  },
+  {
+    id: "kumasi_knust_ayeduase",
+    name: "KNUST Ayeduase Gate",
+    roadName: "Ayeduase Road",
+    latitude: 6.6752,
+    longitude: -1.5652,
+    speedLimitKmh: 30,
+    radiusMeters: 900,
+    description: "Campus and hostel residential zone camera enforcing 30 km/h speed limit."
   }
+];
+
+// 1b. Ghana Speed Limit Zones (roads WITHOUT cameras — road-aware speed detection)
+const SPEED_LIMIT_ZONES = [
+  // === Major Accra Highways ===
+  // Tema Motorway (3 segments)
+  { id: "tema_motorway_west", name: "Tema Motorway (Tetteh Quarshie – Interchange)", latitude: 5.6250, longitude: -0.1450, speedLimitKmh: 100, radiusMeters: 2500 },
+  { id: "tema_motorway_mid", name: "Tema Motorway (Afienya Corridor)", latitude: 5.6400, longitude: -0.0800, speedLimitKmh: 100, radiusMeters: 2500 },
+  { id: "tema_motorway_east", name: "Tema Motorway (Tema Interchange)", latitude: 5.6600, longitude: -0.0200, speedLimitKmh: 100, radiusMeters: 2500 },
+
+  // George Walker Bush Highway N1 segments
+  { id: "n1_pokuase", name: "N1 Highway (Pokuase)", latitude: 5.6800, longitude: -0.3000, speedLimitKmh: 80, radiusMeters: 1500 },
+  { id: "n1_mallam", name: "N1 Highway (Mallam Junction)", latitude: 5.5650, longitude: -0.2800, speedLimitKmh: 80, radiusMeters: 1500 },
+  { id: "n1_santa_maria", name: "N1 Highway (Santa Maria)", latitude: 5.5980, longitude: -0.2300, speedLimitKmh: 80, radiusMeters: 1500 },
+  { id: "n1_tetteh_quarshie", name: "N1 Highway (Tetteh Quarshie)", latitude: 5.6150, longitude: -0.1550, speedLimitKmh: 80, radiusMeters: 1500 },
+
+  // Airport Bypass Road (2 segments)
+  { id: "airport_bypass_north", name: "Airport Bypass Road (North)", latitude: 5.6050, longitude: -0.1700, speedLimitKmh: 80, radiusMeters: 1500 },
+  { id: "airport_bypass_south", name: "Airport Bypass Road (South)", latitude: 5.5920, longitude: -0.1650, speedLimitKmh: 80, radiusMeters: 1500 },
+
+  // === Accra Urban 50 km/h Roads ===
+  { id: "independence_ave", name: "Independence Avenue", latitude: 5.5560, longitude: -0.1970, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "liberation_rd_west", name: "Liberation Road (West)", latitude: 5.5830, longitude: -0.1900, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "liberation_rd_east", name: "Liberation Road (East)", latitude: 5.5870, longitude: -0.1750, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "ring_road_east", name: "Ring Road East", latitude: 5.5700, longitude: -0.1850, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "ring_road_west", name: "Ring Road West", latitude: 5.5650, longitude: -0.2200, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "ring_road_south", name: "Ring Road South", latitude: 5.5500, longitude: -0.2100, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "graphic_road", name: "Graphic Road", latitude: 5.5530, longitude: -0.2180, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "abossey_okai", name: "Abossey Okai Road", latitude: 5.5480, longitude: -0.2280, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "winneba_road", name: "Winneba Road", latitude: 5.5400, longitude: -0.2350, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "kaneshie_odorkor", name: "Kaneshie-Odorkor Road", latitude: 5.5700, longitude: -0.2500, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "dansoman_high_st", name: "Dansoman High Street", latitude: 5.5350, longitude: -0.2550, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "spintex_rd_west", name: "Spintex Road (West)", latitude: 5.6350, longitude: -0.1200, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "spintex_rd_mid", name: "Spintex Road (Central)", latitude: 5.6400, longitude: -0.1000, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "spintex_rd_east", name: "Spintex Road (East)", latitude: 5.6450, longitude: -0.0800, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "oxford_st_osu", name: "Oxford Street Osu", latitude: 5.5560, longitude: -0.1780, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "labone", name: "Labone", latitude: 5.5650, longitude: -0.1820, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "dzorwulu", name: "Dzorwulu", latitude: 5.5980, longitude: -0.2050, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "north_dzorwulu", name: "North Dzorwulu", latitude: 5.6050, longitude: -0.2080, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "east_legon_main", name: "East Legon Main Road", latitude: 5.6350, longitude: -0.1600, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "madina_accra_hwy", name: "Madina-Accra Highway", latitude: 5.6600, longitude: -0.1700, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "adenta_dodowa_rd", name: "Adenta-Dodowa Road", latitude: 5.6900, longitude: -0.1550, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "tema_community_1", name: "Tema Community 1", latitude: 5.6650, longitude: -0.0050, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "tema_harbour_rd", name: "Tema Harbour Road", latitude: 5.6350, longitude: 0.0050, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "beach_rd_labadi_nungua", name: "Beach Road (Labadi/Nungua)", latitude: 5.5500, longitude: -0.1300, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "sakumono", name: "Sakumono", latitude: 5.6200, longitude: -0.0400, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "kasoa_main_rd", name: "Kasoa Main Road", latitude: 5.5350, longitude: -0.4200, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "dodowa_rd_madina", name: "Dodowa Road Madina", latitude: 5.6750, longitude: -0.1650, speedLimitKmh: 50, radiusMeters: 1000 },
+
+  // === School Zones (30 km/h) ===
+  { id: "achimota_school_zone", name: "Achimota School Zone", latitude: 5.6200, longitude: -0.2300, speedLimitKmh: 30, radiusMeters: 800 },
+  { id: "uog_campus", name: "University of Ghana Campus", latitude: 5.6500, longitude: -0.1850, speedLimitKmh: 30, radiusMeters: 800 },
+  { id: "presec_legon", name: "Presec Legon", latitude: 5.6550, longitude: -0.1750, speedLimitKmh: 30, radiusMeters: 800 },
+
+  // === N1/N6 Highway Segments ===
+  { id: "n1_kasoa_bawjiase", name: "N1 Kasoa-Bawjiase", latitude: 5.4800, longitude: -0.4500, speedLimitKmh: 80, radiusMeters: 2000 },
+  { id: "n1_winneba_jct", name: "N1 Winneba Junction", latitude: 5.3500, longitude: -0.5500, speedLimitKmh: 80, radiusMeters: 2000 },
+
+  // N6 town segments (township limits 50 km/h)
+  { id: "n6_nsawam_town", name: "N6 Nsawam Township", latitude: 5.8100, longitude: -0.3500, speedLimitKmh: 50, radiusMeters: 1200 },
+  { id: "n6_suhum_town", name: "N6 Suhum Township", latitude: 6.0400, longitude: -0.4500, speedLimitKmh: 50, radiusMeters: 1200 },
+  { id: "n6_nkawkaw_town", name: "N6 Nkawkaw Township", latitude: 6.5500, longitude: -0.7800, speedLimitKmh: 50, radiusMeters: 1200 },
+  { id: "n6_konongo_town", name: "N6 Konongo Township", latitude: 6.6200, longitude: -1.2200, speedLimitKmh: 50, radiusMeters: 1200 },
+  { id: "n6_ejisu_town", name: "N6 Ejisu Township", latitude: 6.6900, longitude: -1.4600, speedLimitKmh: 50, radiusMeters: 1200 },
+
+  // N6 highway segments between towns (100 km/h)
+  { id: "n6_nsawam_suhum", name: "N6 Highway (Nsawam – Suhum)", latitude: 5.9200, longitude: -0.4000, speedLimitKmh: 100, radiusMeters: 2500 },
+  { id: "n6_suhum_nkawkaw", name: "N6 Highway (Suhum – Nkawkaw)", latitude: 6.3000, longitude: -0.6200, speedLimitKmh: 100, radiusMeters: 2500 },
+  { id: "n6_nkawkaw_konongo", name: "N6 Highway (Nkawkaw – Konongo)", latitude: 6.5800, longitude: -1.0000, speedLimitKmh: 100, radiusMeters: 2500 },
+  { id: "n6_konongo_ejisu", name: "N6 Highway (Konongo – Ejisu)", latitude: 6.6500, longitude: -1.3400, speedLimitKmh: 100, radiusMeters: 2500 },
+
+  // === Kumasi Urban Roads (50 km/h) ===
+  { id: "kumasi_kejetia", name: "Kejetia", latitude: 6.6900, longitude: -1.6250, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "kumasi_adum", name: "Adum / Prempeh II Street", latitude: 6.6870, longitude: -1.6220, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "kumasi_harper_rd", name: "Harper Road", latitude: 6.6950, longitude: -1.6180, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "kumasi_lake_rd", name: "Lake Road", latitude: 6.7000, longitude: -1.6300, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "kumasi_suame_magazine", name: "Suame Magazine", latitude: 6.7100, longitude: -1.6200, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "kumasi_ahinsan_bypass", name: "Ahinsan-Atonsu Bypass", latitude: 6.6600, longitude: -1.6350, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "kumasi_bantama_rd", name: "Bantama Road", latitude: 6.6980, longitude: -1.6400, speedLimitKmh: 50, radiusMeters: 1000 },
+
+  // Kumasi School Zone
+  { id: "knust_campus", name: "KNUST Campus Internal Roads", latitude: 6.6730, longitude: -1.5700, speedLimitKmh: 30, radiusMeters: 800 },
+
+  // Kumasi Highways
+  { id: "n10_obuasi_hwy", name: "N10 Obuasi Highway", latitude: 6.5500, longitude: -1.6500, speedLimitKmh: 80, radiusMeters: 2000 },
+  { id: "n10_mampong_hwy", name: "N10 Mampong Highway", latitude: 6.8000, longitude: -1.5500, speedLimitKmh: 80, radiusMeters: 2000 },
+
+  // === Other Cities (50 km/h) ===
+  { id: "takoradi_market_circle", name: "Takoradi Market Circle", latitude: 4.8950, longitude: -1.7600, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "cape_coast_castle_rd", name: "Cape Coast Castle Road", latitude: 5.1050, longitude: -1.2450, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "tamale_bolga_rd", name: "Tamale-Bolgatanga Road", latitude: 9.4100, longitude: -0.8400, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "ho_main_rd", name: "Ho Main Road", latitude: 6.6000, longitude: 0.4700, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "sunyani_ring_rd", name: "Sunyani Ring Road", latitude: 7.3400, longitude: -2.3300, speedLimitKmh: 50, radiusMeters: 1000 },
+  { id: "koforidua_main_rd", name: "Koforidua Main Road", latitude: 6.0900, longitude: -0.2600, speedLimitKmh: 50, radiusMeters: 1000 },
+
+  // Tamale Bypass
+  { id: "tamale_bypass", name: "Tamale Bypass", latitude: 9.4300, longitude: -0.8100, speedLimitKmh: 80, radiusMeters: 2000 }
 ];
 
 // 2. Application State
@@ -65,6 +386,7 @@ const state = {
   smoothedSpeedKmh: 0,
   manualLimitKmh: parseInt(localStorage.getItem('sc_manual_limit') || '80', 10),
   autoDetectEnabled: localStorage.getItem('sc_auto_detect') !== 'false',
+  alertMode: localStorage.getItem('sc_alert_mode') || (localStorage.getItem('sc_voice_alerts') === 'false' ? 'MUTE' : 'SOUND'),
   voiceAlertsEnabled: localStorage.getItem('sc_voice_alerts') !== 'false',
   voiceGender: localStorage.getItem('sc_voice_gender') || 'FEMALE',
   alertCooldownSeconds: parseInt(localStorage.getItem('sc_cooldown') || '15', 10),
@@ -79,6 +401,8 @@ const state = {
   // Live Location & Radar
   lastPosition: null,
   activeZone: null,
+  activeSpeedLimitZone: null,
+  hasCameraAhead: false,
   distanceToCameraMeters: null,
   isMovingTowardsCamera: false,
   effectiveLimitKmh: 80,
@@ -129,17 +453,21 @@ function calculateBearing(lat1, lon1, lat2, lon2) {
   return (brng + 360) % 360;
 }
 
-// 4. Camera Detection Engine
+// 4. Camera & Road Speed Limit Detection Engine (Dual-Layer)
 function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
   if (!state.autoDetectEnabled) {
     state.activeZone = null;
+    state.activeSpeedLimitZone = null;
+    state.hasCameraAhead = false;
     state.distanceToCameraMeters = null;
+    state.detectedRoadName = null;
     state.effectiveLimitKmh = state.manualLimitKmh;
     return;
   }
 
-  let closestZone = null;
-  let minDistance = Infinity;
+  // --- Layer 1: Check Speed Camera Zones (Highest Priority) ---
+  let closestCamera = null;
+  let minCameraDist = Infinity;
   let isMovingTowards = false;
 
   for (const zone of GHANA_SPEED_CAMERAS) {
@@ -153,30 +481,58 @@ function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
         movingTowards = angleDiff <= 85 || dist <= 350;
       }
 
-      if (movingTowards && dist < minDistance) {
-        minDistance = dist;
-        closestZone = zone;
+      if (movingTowards && dist < minCameraDist) {
+        minCameraDist = dist;
+        closestCamera = zone;
         isMovingTowards = true;
       }
     }
   }
 
-  if (closestZone) {
-    state.activeZone = closestZone;
-    state.distanceToCameraMeters = minDistance;
+  if (closestCamera) {
+    state.activeZone = closestCamera;
+    state.activeSpeedLimitZone = null;
+    state.hasCameraAhead = true;
+    state.distanceToCameraMeters = minCameraDist;
     state.isMovingTowardsCamera = isMovingTowards;
-    state.effectiveLimitKmh = closestZone.speedLimitKmh;
+    state.detectedRoadName = closestCamera.roadName || closestCamera.name;
+    state.effectiveLimitKmh = closestCamera.speedLimitKmh;
+    return;
+  }
 
-    // Camera zone detection state is handled in processSpeedAlerts
-  } else {
+  // --- Layer 2: Check Speed Limit Zones (Named Roads, No Cameras) ---
+  let closestLimitZone = null;
+  let minLimitDist = Infinity;
+
+  for (const zone of SPEED_LIMIT_ZONES) {
+    const dist = calculateDistanceMeters(currentLat, currentLon, zone.latitude, zone.longitude);
+    if (dist <= zone.radiusMeters && dist < minLimitDist) {
+      minLimitDist = dist;
+      closestLimitZone = zone;
+    }
+  }
+
+  if (closestLimitZone) {
     state.activeZone = null;
+    state.activeSpeedLimitZone = closestLimitZone;
+    state.hasCameraAhead = false;
     state.distanceToCameraMeters = null;
     state.isMovingTowardsCamera = false;
+    state.detectedRoadName = closestLimitZone.name;
     state.lastAnnouncedCameraZoneId = null;
-
-    // Outside camera zones, smart default based on vehicle speed
-    state.effectiveLimitKmh = speedKmh >= 65 ? 80 : 50;
+    state.effectiveLimitKmh = closestLimitZone.speedLimitKmh;
+    return;
   }
+
+  // --- Layer 3: Fallback Ghana Standard Limit ---
+  state.activeZone = null;
+  state.activeSpeedLimitZone = null;
+  state.hasCameraAhead = false;
+  state.distanceToCameraMeters = null;
+  state.isMovingTowardsCamera = false;
+  state.detectedRoadName = null;
+  state.lastAnnouncedCameraZoneId = null;
+  state.effectiveLimitKmh = speedKmh >= 65 ? 80 : 50;
 }
 
 // 5. Text-To-Speech (Web Speech API) Engine
@@ -238,9 +594,20 @@ function unlockAudioContext() {
   } catch (e) {}
 }
 
-// 6. Unified Speech Alert Logic
+function triggerAlert(message) {
+  if (state.alertMode === 'SOUND') {
+    speakVoice(message);
+  } else if (state.alertMode === 'VIBRATE') {
+    // 4 bursts across 4 seconds: [buzz 250ms, silence 750ms x 4]
+    if ('vibrate' in navigator) {
+      navigator.vibrate([250, 750, 250, 750, 250, 750, 250]);
+    }
+  }
+}
+
+// 6. Unified Alert Logic (Sound / Vibrate / Mute)
 function processSpeedAlerts(speedKmh, limitKmh) {
-  if (!state.voiceAlertsEnabled || !state.isMonitoring) return;
+  if (state.alertMode === 'MUTE' || !state.isMonitoring) return;
   if (speedKmh < 8.0) return; // Suppress alerts when stationary or walking
 
   const now = Date.now();
@@ -248,20 +615,20 @@ function processSpeedAlerts(speedKmh, limitKmh) {
   const approachingThreshold = Math.max(1, limitKmh - state.approachingOffsetKmh);
   const isApproachingOrExceeded = speedKmh >= approachingThreshold;
 
-  const hasCameraAhead = state.activeZone && state.isMovingTowardsCamera;
-  const cameraZoneId = hasCameraAhead ? state.activeZone.id : null;
+  const hasCameraAhead = state.hasCameraAhead;
+  const cameraZoneId = hasCameraAhead && state.activeZone ? state.activeZone.id : null;
 
   if (hasCameraAhead && cameraZoneId) {
     if (isApproachingOrExceeded) {
       if ((now - (state.lastAlertTime || 0) >= cooldownMs) || cameraZoneId !== state.lastAnnouncedCameraZoneId) {
-        speakVoice("Speed cameras ahead, slow down.");
+        triggerAlert("Speed cameras ahead, slow down.");
         state.lastAlertTime = now;
         state.lastAnnouncedCameraZoneId = cameraZoneId;
         state.hasApproachingFired = true;
       }
     } else {
       if (cameraZoneId !== state.lastAnnouncedCameraZoneId) {
-        speakVoice("Speed cameras ahead, be careful.");
+        triggerAlert("Speed cameras ahead, be careful.");
         state.lastAnnouncedCameraZoneId = cameraZoneId;
         state.lastAlertTime = now;
       }
@@ -273,7 +640,7 @@ function processSpeedAlerts(speedKmh, limitKmh) {
 
     if (isApproachingOrExceeded) {
       if (!state.hasApproachingFired || (now - (state.lastAlertTime || 0) >= cooldownMs)) {
-        speakVoice("You are about to cross the speed limit, slow down.");
+        triggerAlert("You are about to cross the speed limit, slow down.");
         state.lastAlertTime = now;
         state.hasApproachingFired = true;
       }
@@ -628,7 +995,9 @@ function updateUI() {
       radarCard.classList.add('auto-active');
       if (state.activeZone) {
         const d = Math.round(state.distanceToCameraMeters);
-        radarStatus.innerHTML = `<strong>📍 Camera Ahead:</strong> ${state.activeZone.name} (${d}m) • Limit: ${state.activeZone.speedLimitKmh} km/h`;
+        radarStatus.innerHTML = `<strong>📷 Camera Ahead:</strong> ${state.activeZone.roadName || state.activeZone.name} (${d}m) • Limit: <strong>${state.activeZone.speedLimitKmh} km/h</strong>`;
+      } else if (state.activeSpeedLimitZone) {
+        radarStatus.innerHTML = `<strong>📍 Road Limit:</strong> ${state.activeSpeedLimitZone.name} • Limit: <strong>${state.activeSpeedLimitZone.speedLimitKmh} km/h</strong>`;
       } else {
         const area = limit === 80 ? "Ghana Highway" : "Urban Town Corridor";
         radarStatus.innerHTML = `<strong>Auto-Detect Active:</strong> ${area} • Current Limit: <strong>${limit} km/h</strong>`;
@@ -672,11 +1041,19 @@ function updateUI() {
     }
   });
 
-  // Mute Button Icon
+  // Alert Mode Button Icon (Sound -> Vibrate -> Mute)
   const muteBtn = document.getElementById('muteBtn');
   if (muteBtn) {
-    muteBtn.innerHTML = state.voiceAlertsEnabled ? '🔊' : '🔇';
-    muteBtn.title = state.voiceAlertsEnabled ? 'Mute Voice Alerts' : 'Unmute Voice Alerts';
+    if (state.alertMode === 'SOUND') {
+      muteBtn.innerHTML = '🔊';
+      muteBtn.title = 'Sound Alerts Active (Tap for Vibrate)';
+    } else if (state.alertMode === 'VIBRATE') {
+      muteBtn.innerHTML = '📳';
+      muteBtn.title = 'Vibration Alerts Active (Tap for Mute)';
+    } else {
+      muteBtn.innerHTML = '🔇';
+      muteBtn.title = 'Alerts Muted (Tap for Sound)';
+    }
   }
 
   // Theme Icon
@@ -787,11 +1164,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Mute Button
+  // Alert Mode Button (Cycles: Sound -> Vibrate -> Mute -> Sound)
   const muteBtn = document.getElementById('muteBtn');
   if (muteBtn) {
     muteBtn.addEventListener('click', () => {
-      state.voiceAlertsEnabled = !state.voiceAlertsEnabled;
+      const nextMode = state.alertMode === 'SOUND' ? 'VIBRATE' : (state.alertMode === 'VIBRATE' ? 'MUTE' : 'SOUND');
+      state.alertMode = nextMode;
+      state.voiceAlertsEnabled = (nextMode === 'SOUND');
+      if (nextMode === 'VIBRATE' && 'vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
+      localStorage.setItem('sc_alert_mode', nextMode);
       localStorage.setItem('sc_voice_alerts', state.voiceAlertsEnabled);
       updateUI();
     });

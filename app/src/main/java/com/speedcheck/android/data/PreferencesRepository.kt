@@ -27,6 +27,7 @@ class PreferencesRepository private constructor(private val context: Context) {
         val SPEED_LIMIT_KMH = intPreferencesKey("speed_limit_kmh")
         val APPROACHING_OFFSET_KMH = intPreferencesKey("approaching_offset_kmh")
         val VOICE_ALERTS_ENABLED = booleanPreferencesKey("voice_alerts_enabled")
+        val ALERT_MODE = stringPreferencesKey("alert_mode")
         val APPROACHING_ALERT_ENABLED = booleanPreferencesKey("approaching_alert_enabled")
         val VOICE_GENDER = stringPreferencesKey("voice_gender")
         val SPEECH_RATE = floatPreferencesKey("speech_rate")
@@ -49,10 +50,23 @@ class PreferencesRepository private constructor(private val context: Context) {
             }
         }
         .map { preferences ->
+            val alertModeString = preferences[PreferencesKeys.ALERT_MODE]
+            val alertMode = if (alertModeString != null) {
+                try {
+                    AlertMode.valueOf(alertModeString)
+                } catch (e: Exception) {
+                    AlertMode.SOUND
+                }
+            } else {
+                val voiceEnabled = preferences[PreferencesKeys.VOICE_ALERTS_ENABLED] ?: true
+                if (voiceEnabled) AlertMode.SOUND else AlertMode.MUTE
+            }
+
             UserPreferences(
                 speedLimitKmh = preferences[PreferencesKeys.SPEED_LIMIT_KMH] ?: 80,
                 approachingOffsetKmh = preferences[PreferencesKeys.APPROACHING_OFFSET_KMH] ?: 5,
-                voiceAlertsEnabled = preferences[PreferencesKeys.VOICE_ALERTS_ENABLED] ?: true,
+                alertMode = alertMode,
+                voiceAlertsEnabled = (alertMode == AlertMode.SOUND),
                 approachingAlertEnabled = preferences[PreferencesKeys.APPROACHING_ALERT_ENABLED] ?: true,
                 voiceGender = preferences[PreferencesKeys.VOICE_GENDER] ?: "FEMALE",
                 speechRate = preferences[PreferencesKeys.SPEECH_RATE] ?: 1.0f,
@@ -86,6 +100,14 @@ class PreferencesRepository private constructor(private val context: Context) {
     suspend fun updateVoiceAlertsEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.VOICE_ALERTS_ENABLED] = enabled
+            preferences[PreferencesKeys.ALERT_MODE] = if (enabled) AlertMode.SOUND.name else AlertMode.MUTE.name
+        }
+    }
+
+    suspend fun updateAlertMode(mode: AlertMode) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ALERT_MODE] = mode.name
+            preferences[PreferencesKeys.VOICE_ALERTS_ENABLED] = (mode == AlertMode.SOUND)
         }
     }
 

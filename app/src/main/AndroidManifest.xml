@@ -20,6 +20,7 @@
     <!-- Keep CPU awake during active speed tracking and avoid battery throttling -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Hardware Features -->
     <uses-feature

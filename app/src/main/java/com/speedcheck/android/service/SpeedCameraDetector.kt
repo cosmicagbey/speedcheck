@@ -88,7 +88,8 @@ object SpeedCameraDetector {
             longitude = -0.1818,
             speedLimitKmh = 50,
             radiusMeters = 1200f,
-            description = "Speed camera monitoring Liberation Rd near Airport City and Jawaharlal Nehru Rd junction."
+            description = "Mobile speedcam hotspot monitoring Liberation Rd near Airport City and Jawaharlal Nehru Rd junction.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "obasanjo_liberation_end",
@@ -98,7 +99,8 @@ object SpeedCameraDetector {
             longitude = -0.1865,
             speedLimitKmh = 50,
             radiusMeters = 1100f,
-            description = "Enforcing 50 km/h limit on the eastern end of Obasanjo Way near 37 Interchange."
+            description = "Mobile patrol checkpoint on the eastern end of Obasanjo Way near 37 Interchange.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "cantonments_road",
@@ -108,7 +110,8 @@ object SpeedCameraDetector {
             longitude = -0.1812,
             speedLimitKmh = 50,
             radiusMeters = 1000f,
-            description = "Automated speed monitoring on the Cantonments / Osu arterial route."
+            description = "Mobile speed monitoring on the Cantonments / Osu arterial route.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "ring_road_nima_kanda",
@@ -118,7 +121,8 @@ object SpeedCameraDetector {
             longitude = -0.1982,
             speedLimitKmh = 50,
             radiusMeters = 1100f,
-            description = "Automated radar enforcing urban speed along Ring Road Central near Nima junction."
+            description = "Mobile radar trap enforcing urban speed along Ring Road Central near Nima junction.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "teshie_link",
@@ -128,7 +132,8 @@ object SpeedCameraDetector {
             longitude = -0.0982,
             speedLimitKmh = 50,
             radiusMeters = 1200f,
-            description = "Speed enforcement camera along Teshie Link connecting Spintex to Beach Road."
+            description = "Frequent mobile speed enforcement along Teshie Link connecting Spintex to Beach Road.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "laterbiokorshie_star_oil",
@@ -138,7 +143,8 @@ object SpeedCameraDetector {
             longitude = -0.2335,
             speedLimitKmh = 50,
             radiusMeters = 1000f,
-            description = "Automated camera enforcing 50 km/h urban speed limit near Star Oil."
+            description = "Mobile camera checkpoint enforcing 50 km/h urban speed limit near Star Oil.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "n1_densu_weija",
@@ -148,7 +154,8 @@ object SpeedCameraDetector {
             longitude = -0.3364,
             speedLimitKmh = 80,
             radiusMeters = 1500f,
-            description = "High-speed radar camera on the N1 corridor at the Densu River bridge near Weija."
+            description = "Mobile radar checkpoint on N1 western exit at Densu River bridge near Weija.",
+            isMobilePatrol = true
         ),
 
         // -----------------------------------------------------------------
@@ -162,7 +169,8 @@ object SpeedCameraDetector {
             longitude = -0.2225,
             speedLimitKmh = 80,
             radiusMeters = 1400f,
-            description = "Automated camera monitoring N1 flow at Apenkwa and Achimota interchange."
+            description = "Mobile patrol hotspot monitoring N1 flow at Apenkwa and Achimota interchange.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "abelenkpe_main",
@@ -172,7 +180,8 @@ object SpeedCameraDetector {
             longitude = -0.2085,
             speedLimitKmh = 50,
             radiusMeters = 1000f,
-            description = "Urban speed camera on the Abelenkpe - Roman Ridge transit road."
+            description = "Mobile radar patrol on the Abelenkpe - Roman Ridge transit road.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "ofankor_taifa_barrier",
@@ -182,17 +191,19 @@ object SpeedCameraDetector {
             longitude = -0.2582,
             speedLimitKmh = 80,
             radiusMeters = 1500f,
-            description = "Radar camera monitoring northbound N6 traffic at the Ofankor Barrier / Taifa junction."
+            description = "Mobile radar setup monitoring northbound N6 traffic at Ofankor Barrier / Taifa.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "sowutuom_christian_village",
-            name = "Sowutuom (Pillar 2 / Anyaa Link)",
-            roadName = "Sowutuom Road",
+            name = "Pillar 2 / Sowutuom (Mobile Setup)",
+            roadName = "Sowutuom Road / Pillar 2",
             latitude = 5.6162,
             longitude = -0.2692,
-            speedLimitKmh = 50,
+            speedLimitKmh = 40,
             radiusMeters = 1100f,
-            description = "Automated speed enforcement camera along the Sowutuom - Pillar 2 corridor."
+            description = "Frequent mobile tripod setup near Pillar 2 where limit drops sharply between 30 and 50 km/h.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "haatso_atomic_madina",
@@ -202,7 +213,8 @@ object SpeedCameraDetector {
             longitude = -0.1872,
             speedLimitKmh = 50,
             radiusMeters = 1300f,
-            description = "Automated camera monitoring the Haatso, Papao, and Madina Zongo transit stretch."
+            description = "Mobile patrol monitoring Haatso, Papao, and Madina Zongo transit stretch.",
+            isMobilePatrol = true
         ),
 
         // -----------------------------------------------------------------
@@ -216,7 +228,8 @@ object SpeedCameraDetector {
             longitude = -0.1772,
             speedLimitKmh = 50,
             radiusMeters = 1100f,
-            description = "Camera monitoring the Shiashie entrance into East Legon along Lagos Avenue."
+            description = "Camera monitoring Shiashie entrance into East Legon along Lagos Avenue.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "east_legon_bawaleshie",
@@ -226,7 +239,8 @@ object SpeedCameraDetector {
             longitude = -0.1582,
             speedLimitKmh = 50,
             radiusMeters = 1100f,
-            description = "Speed camera on Boundary Road near Bawaleshie and American House junction."
+            description = "Mobile patrol checkpoint near Bawaleshie and American House junction.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "adjiringanor_ogbojo",
@@ -236,7 +250,8 @@ object SpeedCameraDetector {
             longitude = -0.1385,
             speedLimitKmh = 50,
             radiusMeters = 1100f,
-            description = "Speed camera monitoring the Adjiringanor and Ogbojo residential arterial."
+            description = "Mobile patrol along Adjiringanor and Ogbojo residential arterial.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "east_legon_madina_30kmh",
@@ -246,7 +261,8 @@ object SpeedCameraDetector {
             longitude = -0.1552,
             speedLimitKmh = 30,
             radiusMeters = 1000f,
-            description = "Strict 30 km/h automated speed zone in the school and pedestrian crossing zone."
+            description = "Strict 30 km/h zone in school and pedestrian crossing zone.",
+            isMobilePatrol = true
         ),
 
         // -----------------------------------------------------------------
@@ -260,7 +276,8 @@ object SpeedCameraDetector {
             longitude = -1.5832,
             speedLimitKmh = 50,
             radiusMeters = 1300f,
-            description = "Automated speed enforcement near KNUST Main Gate, Bomso, and Ayigya on N6."
+            description = "Mobile patrol hotspot near KNUST Main Gate, Bomso, and Ayigya on N6.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "kumasi_n6_kentinkrono",
@@ -270,7 +287,8 @@ object SpeedCameraDetector {
             longitude = -1.5542,
             speedLimitKmh = 60,
             radiusMeters = 1400f,
-            description = "High-speed camera monitoring eastern entry into Kumasi at Kentinkrono and Nsenie."
+            description = "Mobile radar trap monitoring eastern entry into Kumasi at Kentinkrono and Nsenie.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "kumasi_anwiankwanta",
@@ -280,7 +298,8 @@ object SpeedCameraDetector {
             longitude = -1.6372,
             speedLimitKmh = 80,
             radiusMeters = 1500f,
-            description = "Highway radar camera monitoring approach to Anwiankwanta junction."
+            description = "Highway mobile radar monitoring approach to Anwiankwanta junction.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "kumasi_asokwa_mall",
@@ -290,7 +309,8 @@ object SpeedCameraDetector {
             longitude = -1.6062,
             speedLimitKmh = 50,
             radiusMeters = 1200f,
-            description = "Automated urban speed camera near Kumasi City Mall on the Asokwa bypass."
+            description = "Mobile radar trap near Kumasi City Mall on the Asokwa bypass.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "kumasi_adukrom_asokore_mampong",
@@ -300,7 +320,8 @@ object SpeedCameraDetector {
             longitude = -1.5952,
             speedLimitKmh = 50,
             radiusMeters = 1200f,
-            description = "Speed camera monitoring side routes off N6 towards Asokore Mampong and Adukrom."
+            description = "Mobile speedcam monitoring side routes off N6 towards Asokore Mampong and Adukrom.",
+            isMobilePatrol = true
         ),
         SpeedCameraZone(
             id = "kumasi_knust_ayeduase",
@@ -310,7 +331,19 @@ object SpeedCameraDetector {
             longitude = -1.5652,
             speedLimitKmh = 30,
             radiusMeters = 900f,
-            description = "Campus and hostel residential zone camera enforcing 30 km/h speed limit."
+            description = "Campus and hostel residential zone mobile trap enforcing 30 km/h.",
+            isMobilePatrol = true
+        ),
+        SpeedCameraZone(
+            id = "kumasi_boankra_trap",
+            name = "Boankra N6 Highway (Mobile Speed Trap)",
+            roadName = "Accra - Kumasi Highway (N6)",
+            latitude = 6.6385,
+            longitude = -1.4180,
+            speedLimitKmh = 50,
+            radiusMeters = 1500f,
+            description = "Frequent rotating police mobile speedcam setup where highway limit unpredictably drops to 50 km/h near Boankra.",
+            isMobilePatrol = true
         )
     )
 
@@ -990,6 +1023,11 @@ object SpeedCameraDetector {
         if (cameraResult != null) {
             val (zone, distance, movingTowards) = cameraResult
             val dist = distance.toInt()
+            val statusDesc = if (zone.isMobilePatrol) {
+                "⚠️ Potential Police Speedcam: ${zone.roadName} (${dist}m) • ${zone.speedLimitKmh} km/h"
+            } else {
+                "📷 ${zone.roadName} (${dist}m) • ${zone.speedLimitKmh} km/h"
+            }
             return CameraDetectionResult(
                 isAutoDetectActive = true,
                 activeZone = zone,
@@ -997,10 +1035,11 @@ object SpeedCameraDetector {
                 distanceToCameraMeters = distance,
                 isMovingTowardsCamera = movingTowards,
                 hasCameraAhead = true,
+                isMobilePatrol = zone.isMobilePatrol,
                 detectedRoadName = zone.roadName,
                 areaType = if (zone.speedLimitKmh >= 80) "Highway" else if (zone.speedLimitKmh <= 30) "School Zone" else "Urban",
                 recommendedLimitKmh = zone.speedLimitKmh,
-                statusDescription = "📷 ${zone.roadName} (${dist}m) • ${zone.speedLimitKmh} km/h"
+                statusDescription = statusDesc
             )
         }
 

@@ -248,13 +248,16 @@ class SpeedTrackingService : Service() {
 
         // Unified Contextual Voice & Vibration Prompts:
         // - On a known road without camera & approaching/breaking limit: "You are about to cross the speed limit, slow down"
-        // - In camera zone & safe speed: "Speed cameras ahead, be careful"
-        // - In camera zone & approaching/breaking limit: "Speed cameras ahead, slow down"
+        // - In fixed camera zone & safe speed: "Speed cameras ahead, be careful"
+        // - In fixed camera zone & approaching/breaking limit: "Speed cameras ahead, slow down"
+        // - In mobile patrol hotspot & safe speed: "Potential police speed camera ahead, be careful"
+        // - In mobile patrol hotspot & approaching/breaking limit: "Potential police speed camera ahead, slow down"
         // - In VIBRATE mode: short burst each second for 4 seconds in place of sound
         if (currentPreferences.alertMode != com.speedcheck.android.data.AlertMode.MUTE &&
             currentMonitoringState == MonitoringState.ACTIVE_MONITORING) {
             val hasCameraAhead = detectionResult.hasCameraAhead
             val cameraZoneId = if (hasCameraAhead) detectionResult.activeZone?.id else null
+            val isMobilePatrol = detectionResult.isMobilePatrol
 
             ttsManager.processSpeedAlert(
                 currentSpeedKmh = speedKmh,
@@ -263,6 +266,7 @@ class SpeedTrackingService : Service() {
                 cooldownSeconds = currentPreferences.alertCooldownSeconds,
                 hasCameraAhead = hasCameraAhead,
                 cameraZoneId = cameraZoneId,
+                isMobilePatrol = isMobilePatrol,
                 alertMode = currentPreferences.alertMode,
                 onVibrateAlert = {
                     vibrationManager.triggerAlertVibration()
@@ -294,59 +298,62 @@ class SpeedTrackingService : Service() {
     ) {
         val now = System.currentTimeMillis()
         val zone = detectionResult.activeZone
-        val isNewZone = zone != null && zone.id != lastLoggedCameraZoneId
-        val isOverspeedAlert = alertStatus != SpeedAlertStatus.NORMAL && (now - lastLogSnapshotTimeMs >= 15000L)
-        val isPeriodicHeartbeat = speedKmh >= 15f && (now - lastLogSnapshotTimeMs >= 60000L)
 
-        if (isNewZone || isOverspeedAlert || isPeriodicHeartbeat) {
-            val place = if (zone != null) {
-                "${zone.name} (${zone.roadName})"
-            } else if (detectionResult.detectedRoadName != null) {
-                detectionResult.detectedRoadName
-            } else if (speedKmh >= 65f) {
-                "Ghana National Highway Corridor"
-            } else {
-                "Urban Road / Built-up Area"
-            }
+        // STRICT FILTER: Only log history when driver hits the warning buffer (APPROACHING)
+        // or breaks the speed limit (EXCEEDED)
+        val isWarningBufferOrExceeded = alertStatus == SpeedAlertStatus.APPROACHING || alertStatus == SpeedAlertStatus.EXCEEDED
+        if (!isWarningBufferOrExceeded) return
 
-            val compliance = if (speedKmh <= effectiveLimit) {
-                "COMPLIANT (Safe Driving)"
-            } else {
-                "EXCEEDED (+${(speedKmh - effectiveLimit).toInt()} km/h)"
-            }
+        // Throttle snapshots: at most once every 12 seconds to prevent log flooding
+        if (now - lastLogSnapshotTimeMs < 12000L) return
 
-            val note = if (zone != null) {
-                "MTTD automated camera corridor. Zone limit: ${zone.speedLimitKmh} km/h."
-            } else if (alertStatus == SpeedAlertStatus.EXCEEDED) {
-                "Driver speed exceeded limit. Alert triggered."
-            } else {
-                "Routine driving speed evidence log."
-            }
+        val place = if (zone != null) {
+            "${zone.name} (${zone.roadName})"
+        } else if (detectionResult.detectedRoadName != null) {
+            detectionResult.detectedRoadName
+        } else if (speedKmh >= 65f) {
+            "Ghana National Highway Corridor"
+        } else {
+            "Urban Road / Built-up Area"
+        }
 
-            serviceScope.launch(Dispatchers.IO) {
-                speedLogRepository.logSnapshot(
-                    SpeedLogEntry(
-                        timestamp = now,
-                        placeName = place,
-                        latitude = location.latitude,
-                        longitude = location.longitude,
-                        speedKmh = speedKmh,
-                        maxSpeedKmh = tripStats.maxSpeedKmh,
-                        speedLimitKmh = effectiveLimit,
-                        alertStatus = alertStatus,
-                        isAutoDetect = currentPreferences.autoDetectSpeedLimit,
-                        complianceStatus = compliance,
-                        note = note
-                    )
+        val compliance = if (alertStatus == SpeedAlertStatus.EXCEEDED) {
+            "EXCEEDED (+${(speedKmh - effectiveLimit).toInt()} km/h)"
+        } else {
+            "WARNING BUFFER (${speedKmh.toInt()} / $effectiveLimit km/h)"
+        }
+
+        val note = if (alertStatus == SpeedAlertStatus.EXCEEDED) {
+            if (zone != null) "Exceeded speed limit in MTTD camera corridor ($effectiveLimit km/h)."
+            else "Driver speed exceeded limit ($effectiveLimit km/h). Immediate alert triggered."
+        } else {
+            if (zone != null) "Approaching speed limit in MTTD camera corridor ($effectiveLimit km/h)."
+            else "Driver reached early warning buffer ($effectiveLimit km/h). Warning prompt triggered."
+        }
+
+        serviceScope.launch(Dispatchers.IO) {
+            speedLogRepository.logSnapshot(
+                SpeedLogEntry(
+                    timestamp = now,
+                    placeName = place,
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    speedKmh = speedKmh,
+                    maxSpeedKmh = tripStats.maxSpeedKmh,
+                    speedLimitKmh = effectiveLimit,
+                    alertStatus = alertStatus,
+                    isAutoDetect = currentPreferences.autoDetectSpeedLimit,
+                    complianceStatus = compliance,
+                    note = note
                 )
-            }
+            )
+        }
 
-            lastLogSnapshotTimeMs = now
-            if (zone != null) {
-                lastLoggedCameraZoneId = zone.id
-            } else {
-                lastLoggedCameraZoneId = null
-            }
+        lastLogSnapshotTimeMs = now
+        if (zone != null) {
+            lastLoggedCameraZoneId = zone.id
+        } else {
+            lastLoggedCameraZoneId = null
         }
     }
 

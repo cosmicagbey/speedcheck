@@ -11,7 +11,8 @@ data class SpeedCameraZone(
     val longitude: Double,
     val speedLimitKmh: Int,
     val radiusMeters: Float = 1200f,
-    val description: String = ""
+    val description: String = "",
+    val isMobilePatrol: Boolean = false
 )
 
 /**
@@ -34,6 +35,9 @@ data class CameraDetectionResult(
 
     /** True when the driver is inside a speed camera zone. */
     val hasCameraAhead: Boolean = false,
+
+    /** True when the camera zone is a mobile/rotating police speedcam hotspot. */
+    val isMobilePatrol: Boolean = false,
 
     /** The detected road name (from camera zone or speed limit zone). */
     val detectedRoadName: String? = null,

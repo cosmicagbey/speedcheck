@@ -277,7 +277,19 @@ const GHANA_SPEED_CAMERAS = [
     longitude: -1.5652,
     speedLimitKmh: 30,
     radiusMeters: 900,
-    description: "Campus and hostel residential zone camera enforcing 30 km/h speed limit."
+    description: "Campus and hostel residential zone camera enforcing 30 km/h speed limit.",
+    isMobilePatrol: true
+  },
+  {
+    id: "kumasi_boankra_trap",
+    name: "Boankra N6 Highway (Mobile Speed Trap)",
+    roadName: "Accra - Kumasi Highway (N6)",
+    latitude: 6.6385,
+    longitude: -1.4180,
+    speedLimitKmh: 50,
+    radiusMeters: 1500,
+    description: "Frequent rotating police mobile speedcam setup where highway limit unpredictably drops to 50 km/h near Boankra.",
+    isMobilePatrol: true
   }
 ];
 
@@ -619,16 +631,20 @@ function processSpeedAlerts(speedKmh, limitKmh) {
   const cameraZoneId = hasCameraAhead && state.activeZone ? state.activeZone.id : null;
 
   if (hasCameraAhead && cameraZoneId) {
+    const isMobile = state.activeZone && state.activeZone.isMobilePatrol;
+    const safeMsg = isMobile ? "Potential police speed camera ahead, be careful." : "Speed cameras ahead, be careful.";
+    const warnMsg = isMobile ? "Potential police speed camera ahead, slow down." : "Speed cameras ahead, slow down.";
+
     if (isApproachingOrExceeded) {
       if ((now - (state.lastAlertTime || 0) >= cooldownMs) || cameraZoneId !== state.lastAnnouncedCameraZoneId) {
-        triggerAlert("Speed cameras ahead, slow down.");
+        triggerAlert(warnMsg);
         state.lastAlertTime = now;
         state.lastAnnouncedCameraZoneId = cameraZoneId;
         state.hasApproachingFired = true;
       }
     } else {
       if (cameraZoneId !== state.lastAnnouncedCameraZoneId) {
-        triggerAlert("Speed cameras ahead, be careful.");
+        triggerAlert(safeMsg);
         state.lastAnnouncedCameraZoneId = cameraZoneId;
         state.lastAlertTime = now;
       }
@@ -995,7 +1011,8 @@ function updateUI() {
       radarCard.classList.add('auto-active');
       if (state.activeZone) {
         const d = Math.round(state.distanceToCameraMeters);
-        radarStatus.innerHTML = `<strong>📷 Camera Ahead:</strong> ${state.activeZone.roadName || state.activeZone.name} (${d}m) • Limit: <strong>${state.activeZone.speedLimitKmh} km/h</strong>`;
+        const prefix = state.activeZone.isMobilePatrol ? "⚠️ Potential Police Speedcam:" : "📷 Camera Ahead:";
+        radarStatus.innerHTML = `<strong>${prefix}</strong> ${state.activeZone.roadName || state.activeZone.name} (${d}m) • Limit: <strong>${state.activeZone.speedLimitKmh} km/h</strong>`;
       } else if (state.activeSpeedLimitZone) {
         radarStatus.innerHTML = `<strong>📍 Road Limit:</strong> ${state.activeSpeedLimitZone.name} • Limit: <strong>${state.activeSpeedLimitZone.speedLimitKmh} km/h</strong>`;
       } else {

@@ -93,6 +93,14 @@ fun HistoryScreen(
     val repository = remember { SpeedLogRepository.getInstance(context) }
     val logs by repository.logsFlow.collectAsState()
 
+    // STRICT USER FILTER: Only display logs where driver hit the warning buffer (APPROACHING)
+    // or broke the speed limit (EXCEEDED)
+    val alertLogs = remember(logs) {
+        logs.filter {
+            it.alertStatus == SpeedAlertStatus.APPROACHING || it.alertStatus == SpeedAlertStatus.EXCEEDED
+        }
+    }
+
     var showMenu by remember { mutableStateOf(false) }
     var showClearConfirmDialog by remember { mutableStateOf(false) }
 
@@ -109,7 +117,7 @@ fun HistoryScreen(
                             fontSize = 18.sp
                         )
                         Text(
-                            text = "${logs.size} recorded logs for legal defense",
+                            text = "${alertLogs.size} warning & violation logs",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                         )
@@ -133,9 +141,9 @@ fun HistoryScreen(
                             leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
                             onClick = {
                                 showMenu = false
-                                repository.exportLogs(context)
+                                repository.exportLogs(context, alertLogs)
                             },
-                            enabled = logs.isNotEmpty()
+                            enabled = alertLogs.isNotEmpty()
                         )
                         DropdownMenuItem(
                             text = { Text("Clear All Logs", color = SpeedExceededRed) },
@@ -144,7 +152,7 @@ fun HistoryScreen(
                                 showMenu = false
                                 showClearConfirmDialog = true
                             },
-                            enabled = logs.isNotEmpty()
+                            enabled = alertLogs.isNotEmpty()
                         )
                     }
                 },
@@ -157,7 +165,7 @@ fun HistoryScreen(
         containerColor = MaterialTheme.colorScheme.background,
         modifier = modifier
     ) { innerPadding ->
-        if (logs.isEmpty()) {
+        if (alertLogs.isEmpty()) {
             EmptyHistoryView(modifier = Modifier.padding(innerPadding))
         } else {
             LazyColumn(
@@ -167,7 +175,7 @@ fun HistoryScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(logs, key = { it.id }) { logEntry ->
+                items(alertLogs, key = { it.id }) { logEntry ->
                     HistoryLogCard(entry = logEntry)
                 }
             }
@@ -247,7 +255,7 @@ private fun HistoryLogCard(entry: SpeedLogEntry) {
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = if (entry.speedKmh <= entry.speedLimitKmh) "COMPLIANT" else "OVER LIMIT",
+                        text = if (entry.alertStatus == SpeedAlertStatus.EXCEEDED) "OVER LIMIT" else "WARNING BUFFER",
                         color = statusColor,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Black
@@ -439,7 +447,7 @@ private fun EmptyHistoryView(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "No Driving Evidence Yet",
+            text = "No Warnings or Violations Yet",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold
         )
@@ -447,7 +455,7 @@ private fun EmptyHistoryView(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "While speed monitoring is active, your speed, timestamps, and locations will be automatically logged here to protect you against false speeding tickets.",
+            text = "SpeedCheck automatically captures verifiable evidence records whenever you hit your warning buffer or exceed a speed limit.",
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             lineHeight = 18.sp,

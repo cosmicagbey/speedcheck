@@ -190,16 +190,23 @@ fun DashboardScreen(
 
             // Early Warning Notification Info
             val approachingThreshold = currentLimit - userPreferences.approachingOffsetKmh
-            Text(
-                text = "Voice warning at $approachingThreshold km/h • Limit $currentLimit km/h",
-                fontSize = 13.sp,
-                color = when (alertStatus) {
-                    SpeedAlertStatus.EXCEEDED -> SpeedExceededRed
-                    SpeedAlertStatus.APPROACHING -> SpeedApproachingAmber
-                    SpeedAlertStatus.NORMAL -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
-                },
-                fontWeight = FontWeight.SemiBold
-            )
+            Surface(
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f),
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            ) {
+                Text(
+                    text = "Early voice warning at $approachingThreshold km/h • Limit $currentLimit km/h",
+                    fontSize = 12.sp,
+                    color = when (alertStatus) {
+                        SpeedAlertStatus.EXCEEDED -> SpeedExceededRed
+                        SpeedAlertStatus.APPROACHING -> SpeedApproachingAmber
+                        SpeedAlertStatus.NORMAL -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    },
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -302,7 +309,9 @@ fun DashboardScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (cameraDetection.hasCameraAhead) "SPEED CAMERA ZONE" else "ROAD SPEED LIMIT",
+                                text = if (cameraDetection.isMobilePatrol) "POTENTIAL POLICE SPEEDCAM"
+                                else if (cameraDetection.hasCameraAhead) "SPEED CAMERA ZONE"
+                                else "ROAD SPEED LIMIT",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (cameraDetection.hasCameraAhead) GhanaGold else SpeedSafeGreen,
@@ -318,7 +327,9 @@ fun DashboardScreen(
                         )
                         // Show road name and area type context
                         val contextLine = buildString {
-                            if (cameraDetection.hasCameraAhead) {
+                            if (cameraDetection.isMobilePatrol) {
+                                append("⚠️ Mobile patrol trap ahead: ")
+                            } else if (cameraDetection.hasCameraAhead) {
                                 append("📷 Camera zone enforcement: ")
                             }
                             append("Speed limit automatically set to ${cameraDetection.recommendedLimitKmh} km/h")
@@ -350,26 +361,41 @@ fun DashboardScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp),
-                shape = RoundedCornerShape(16.dp),
+                    .height(62.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isMonitoring) SpeedExceededRed else SpeedSafeGreen,
-                    contentColor = if (isMonitoring) Color.White else Color.Black
+                    contentColor = if (isMonitoring) Color.White else Color(0xFF0F172A)
                 ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp, pressedElevation = 2.dp)
             ) {
-                Icon(
-                    imageVector = if (isMonitoring) Icons.Default.Stop else Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = if (isMonitoring) "STOP MONITORING" else "START MONITORING",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp
-                )
+                if (isMonitoring) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .background(Color.White, shape = CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "STOP MONITORING",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "START MONITORING",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -617,26 +643,40 @@ private fun StatusBadge(
 private fun TripStatsCard(tripStats: TripStats) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
+        shape = RoundedCornerShape(18.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
                 text = "SESSION TRIP STATS",
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 letterSpacing = 1.sp
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 StatItem(label = "MAX SPEED", value = "${tripStats.maxSpeedKmh.toInt()}", unit = "km/h")
+                Box(
+                    modifier = Modifier
+                        .height(26.dp)
+                        .width(1.dp)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                )
                 StatItem(label = "AVG SPEED", value = "${tripStats.averageSpeedKmh.toInt()}", unit = "km/h")
+                Box(
+                    modifier = Modifier
+                        .height(26.dp)
+                        .width(1.dp)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                )
                 StatItem(label = "DISTANCE", value = String.format("%.1f", tripStats.distanceKm), unit = "km")
             }
         }

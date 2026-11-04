@@ -120,13 +120,14 @@ class SpeedCheckUnitTest {
     @Test
     fun ghanaSpeedCameras_containAllRequiredLocations() {
         val cameras = SpeedCameraDetector.GHANA_SPEED_CAMERAS
-        assertEquals(27, cameras.size)
+        assertEquals(28, cameras.size)
 
         // 1. Borteyman Sports Facility T-Junction
         val borteyman = cameras.find { it.id == "borteyman_junction" }
         assertNotNull(borteyman)
         assertEquals(80, borteyman?.speedLimitKmh)
         assertTrue(borteyman?.name?.contains("Borteyman") == true)
+        assertFalse(borteyman?.isMobilePatrol == true)
 
         // 2. The N1 Highway near Fiesta Royale Hotel
         val fiestaRoyale = cameras.find { it.id == "n1_fiesta_royale" }
@@ -152,30 +153,49 @@ class SpeedCheckUnitTest {
         assertEquals(50, kanda?.speedLimitKmh)
         assertTrue(kanda?.name?.contains("Kanda") == true)
 
-        // 6. Densu River Bridge near Weija (N1 Accra-Cape Coast)
+        // 6. Densu River Bridge near Weija (N1 Accra-Cape Coast) - Mobile Patrol
         val weija = cameras.find { it.id == "n1_densu_weija" }
         assertNotNull(weija)
         assertEquals(80, weija?.speedLimitKmh)
+        assertTrue(weija?.isMobilePatrol == true)
 
-        // 7. Ofankor Barrier / Taifa (N6)
+        // 7. Ofankor Barrier / Taifa (N6) - Mobile Patrol
         val ofankor = cameras.find { it.id == "ofankor_taifa_barrier" }
         assertNotNull(ofankor)
         assertEquals(80, ofankor?.speedLimitKmh)
+        assertTrue(ofankor?.isMobilePatrol == true)
 
         // 8. East Legon - Madina 30 km/h School Zone
         val eastLegonMadina = cameras.find { it.id == "east_legon_madina_30kmh" }
         assertNotNull(eastLegonMadina)
         assertEquals(30, eastLegonMadina?.speedLimitKmh)
 
-        // 9. Kumasi N6 Bomso / Ayigya / KNUST Gate
+        // 9. Kumasi N6 Bomso / Ayigya / KNUST Gate - Mobile Patrol
         val kumasiKnust = cameras.find { it.id == "kumasi_n6_bomso_ayigya" }
         assertNotNull(kumasiKnust)
         assertEquals(50, kumasiKnust?.speedLimitKmh)
+        assertTrue(kumasiKnust?.isMobilePatrol == true)
 
         // 10. Kumasi Ayeduase (30 km/h campus zone)
         val ayeduase = cameras.find { it.id == "kumasi_knust_ayeduase" }
         assertNotNull(ayeduase)
         assertEquals(30, ayeduase?.speedLimitKmh)
+
+        // 11. Boankra N6 Highway (Mobile Speed Trap)
+        val boankra = cameras.find { it.id == "kumasi_boankra_trap" }
+        assertNotNull(boankra)
+        assertEquals(50, boankra?.speedLimitKmh)
+        assertTrue(boankra?.isMobilePatrol == true)
+
+        // 12. Pillar 2 / Sowutuom mobile tripod setup
+        val pillar2 = cameras.find { it.id == "sowutuom_christian_village" }
+        assertNotNull(pillar2)
+        assertEquals(40, pillar2?.speedLimitKmh)
+        assertTrue(pillar2?.isMobilePatrol == true)
+
+        // Verify permanent cameras list for Settings page has exactly 5 cameras
+        val fixedCameras = cameras.filter { !it.isMobilePatrol }
+        assertEquals(5, fixedCameras.size)
     }
 
     @Test
@@ -184,7 +204,8 @@ class SpeedCheckUnitTest {
             speedKmh: Float,
             speedLimitKmh: Int,
             approachingOffsetKmh: Int,
-            hasCameraAhead: Boolean
+            hasCameraAhead: Boolean,
+            isMobilePatrol: Boolean = false
         ): String? {
             // Suppress alerts when stationary or walking (< 8 km/h)
             if (speedKmh < 8.0f) return null
@@ -193,10 +214,18 @@ class SpeedCheckUnitTest {
             val isApproachingOrExceeded = speedKmh >= approachingThreshold
 
             return if (hasCameraAhead) {
-                if (isApproachingOrExceeded) {
-                    "Speed cameras ahead, slow down."
+                if (isMobilePatrol) {
+                    if (isApproachingOrExceeded) {
+                        "Potential police speed camera ahead, slow down."
+                    } else {
+                        "Potential police speed camera ahead, be careful."
+                    }
                 } else {
-                    "Speed cameras ahead, be careful."
+                    if (isApproachingOrExceeded) {
+                        "Speed cameras ahead, slow down."
+                    } else {
+                        "Speed cameras ahead, be careful."
+                    }
                 }
             } else {
                 if (isApproachingOrExceeded) {
@@ -215,18 +244,25 @@ class SpeedCheckUnitTest {
         assertEquals(null, resolveAlertMessage(5.5f, limit, offset, hasCameraAhead = false))
         assertEquals(null, resolveAlertMessage(7.9f, limit, offset, hasCameraAhead = true))
 
-        // Case 2: Camera zone + driving safely (60 km/h in 80 zone)
-        assertEquals("Speed cameras ahead, be careful.", resolveAlertMessage(60f, limit, offset, hasCameraAhead = true))
+        // Case 2: Fixed Camera zone + driving safely (60 km/h in 80 zone)
+        assertEquals("Speed cameras ahead, be careful.", resolveAlertMessage(60f, limit, offset, hasCameraAhead = true, isMobilePatrol = false))
 
-        // Case 3: Camera zone + approaching/breaking limit (76 km/h or 85 km/h in 80 zone)
-        assertEquals("Speed cameras ahead, slow down.", resolveAlertMessage(75f, limit, offset, hasCameraAhead = true))
-        assertEquals("Speed cameras ahead, slow down.", resolveAlertMessage(85f, limit, offset, hasCameraAhead = true))
+        // Case 3: Fixed Camera zone + approaching/breaking limit (75 km/h or 85 km/h in 80 zone)
+        assertEquals("Speed cameras ahead, slow down.", resolveAlertMessage(75f, limit, offset, hasCameraAhead = true, isMobilePatrol = false))
+        assertEquals("Speed cameras ahead, slow down.", resolveAlertMessage(85f, limit, offset, hasCameraAhead = true, isMobilePatrol = false))
 
-        // Case 4: Normal road (no camera) + approaching/breaking limit
+        // Case 4: Mobile Patrol camera + driving safely
+        assertEquals("Potential police speed camera ahead, be careful.", resolveAlertMessage(60f, limit, offset, hasCameraAhead = true, isMobilePatrol = true))
+
+        // Case 5: Mobile Patrol camera + approaching/breaking limit
+        assertEquals("Potential police speed camera ahead, slow down.", resolveAlertMessage(75f, limit, offset, hasCameraAhead = true, isMobilePatrol = true))
+        assertEquals("Potential police speed camera ahead, slow down.", resolveAlertMessage(85f, limit, offset, hasCameraAhead = true, isMobilePatrol = true))
+
+        // Case 6: Normal road (no camera) + approaching/breaking limit
         assertEquals("You are about to cross the speed limit, slow down.", resolveAlertMessage(75f, limit, offset, hasCameraAhead = false))
         assertEquals("You are about to cross the speed limit, slow down.", resolveAlertMessage(90f, limit, offset, hasCameraAhead = false))
 
-        // Case 5: Normal road (no camera) + driving safely (60 km/h in 80 zone)
+        // Case 7: Normal road (no camera) + driving safely (60 km/h in 80 zone)
         assertEquals(null, resolveAlertMessage(60f, limit, offset, hasCameraAhead = false))
     }
 
@@ -313,5 +349,29 @@ class SpeedCheckUnitTest {
                 zone.areaType in validAreaTypes
             )
         }
+    }
+
+    @Test
+    fun historyFilter_onlyAcceptsApproachingAndExceeded() {
+        fun shouldLogHistory(alertStatus: SpeedAlertStatus): Boolean {
+            return alertStatus == SpeedAlertStatus.APPROACHING || alertStatus == SpeedAlertStatus.EXCEEDED
+        }
+
+        assertFalse("NORMAL status should not be logged in history", shouldLogHistory(SpeedAlertStatus.NORMAL))
+        assertTrue("APPROACHING status must be logged in history", shouldLogHistory(SpeedAlertStatus.APPROACHING))
+        assertTrue("EXCEEDED status must be logged in history", shouldLogHistory(SpeedAlertStatus.EXCEEDED))
+    }
+
+    @Test
+    fun cameraList_collapsedViewLimitsToFiveItems() {
+        val totalCameras = SpeedCameraDetector.GHANA_SPEED_CAMERAS
+        assertEquals(28, totalCameras.size)
+
+        val fixedCameras = totalCameras.filter { !it.isMobilePatrol }
+        assertEquals(5, fixedCameras.size)
+
+        val collapsedList = fixedCameras.take(5)
+        assertEquals(5, collapsedList.size)
+        assertEquals("borteyman_junction", collapsedList[0].id)
     }
 }

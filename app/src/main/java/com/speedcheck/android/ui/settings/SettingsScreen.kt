@@ -23,11 +23,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -114,6 +117,7 @@ fun SettingsScreen(
     }
     var showGhanaGuideDialog by remember { mutableStateOf(false) }
     var showPrivacyPolicyDialog by remember { mutableStateOf(false) }
+    var isCameraListExpanded by remember { mutableStateOf(false) }
 
     val presetLimits = listOf(30, 50, 80, 100, 120)
     val cooldownOptions = listOf(10, 15, 20, 30)
@@ -190,14 +194,50 @@ fun SettingsScreen(
 
                     if (userPreferences.autoDetectSpeedLimit) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Enforced Ghana Speed Camera Corridors:",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GhanaGold
-                        )
+                        val fixedCameras = remember { SpeedCameraDetector.GHANA_SPEED_CAMERAS.filter { !it.isMobilePatrol } }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Enforced Speed Cameras (${fixedCameras.size}):",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GhanaGold
+                            )
+                            if (fixedCameras.size > 5) {
+                                Row(
+                                    modifier = Modifier
+                                        .clickable { isCameraListExpanded = !isCameraListExpanded }
+                                        .padding(vertical = 4.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = if (isCameraListExpanded) "Show Less" else "Show All",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AccentCyan
+                                    )
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Icon(
+                                        imageVector = if (isCameraListExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = if (isCameraListExpanded) "Show Less" else "Show All",
+                                        tint = AccentCyan,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
                         Spacer(modifier = Modifier.height(6.dp))
-                        SpeedCameraDetector.GHANA_SPEED_CAMERAS.forEach { camera ->
+
+                        val displayedCameras = if (isCameraListExpanded) {
+                            fixedCameras
+                        } else {
+                            fixedCameras.take(5)
+                        }
+
+                        displayedCameras.forEach { camera ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -216,6 +256,31 @@ fun SettingsScreen(
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = SpeedSafeGreen
+                                )
+                            }
+                        }
+
+                        if (!isCameraListExpanded && fixedCameras.size > 5) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { isCameraListExpanded = true }
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "+${fixedCameras.size - 5} more speed camera zones",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Expand list",
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(14.dp)
                                 )
                             }
                         }
@@ -366,27 +431,71 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(
-                            AlertMode.SOUND to "Sound (Voice)",
-                            AlertMode.VIBRATE to "Vibrate (4s)",
-                            AlertMode.MUTE to "Mute"
-                        ).forEach { (mode, label) ->
-                            FilterChip(
-                                selected = userPreferences.alertMode == mode,
-                                onClick = {
-                                    scope.launch { repository.updateAlertMode(mode) }
-                                    if (mode == AlertMode.VIBRATE) {
-                                        vibrationManager.triggerModeSwitchTick()
-                                    }
-                                },
-                                label = { Text(label) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = if (mode == AlertMode.VIBRATE) GhanaGold else SpeedSafeGreen,
-                                    selectedLabelColor = Color.Black
-                                )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 1. Sound Mode: Speaker icon + (Voice)
+                        FilterChip(
+                            selected = userPreferences.alertMode == AlertMode.SOUND,
+                            onClick = {
+                                scope.launch { repository.updateAlertMode(AlertMode.SOUND) }
+                            },
+                            label = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("(Voice)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = SpeedSafeGreen,
+                                selectedLabelColor = Color.Black
                             )
-                        }
+                        )
+
+                        // 2. Vibrate Mode: Vibration icon only
+                        FilterChip(
+                            selected = userPreferences.alertMode == AlertMode.VIBRATE,
+                            onClick = {
+                                scope.launch { repository.updateAlertMode(AlertMode.VIBRATE) }
+                                vibrationManager.triggerModeSwitchTick()
+                            },
+                            label = {
+                                Icon(
+                                    imageVector = Icons.Default.Vibration,
+                                    contentDescription = "Vibrate Alert Mode",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = GhanaGold,
+                                selectedLabelColor = Color.Black
+                            )
+                        )
+
+                        // 3. Mute Mode: Volume off icon only
+                        FilterChip(
+                            selected = userPreferences.alertMode == AlertMode.MUTE,
+                            onClick = {
+                                scope.launch { repository.updateAlertMode(AlertMode.MUTE) }
+                            },
+                            label = {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.VolumeOff,
+                                    contentDescription = "Mute Alert Mode",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = SpeedExceededRed,
+                                selectedLabelColor = Color.White
+                            )
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))

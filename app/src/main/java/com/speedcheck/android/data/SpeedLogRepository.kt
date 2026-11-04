@@ -51,8 +51,8 @@ class SpeedLogRepository private constructor(private val context: Context) {
     /**
      * Generates a CSV format evidence report and opens Android Share Sheet.
      */
-    fun exportLogs(context: Context) {
-        val logs = _logsFlow.value
+    fun exportLogs(context: Context, customLogs: List<SpeedLogEntry>? = null) {
+        val logs = customLogs ?: _logsFlow.value
         if (logs.isEmpty()) return
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())

@@ -210,6 +210,7 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
         cooldownSeconds: Int,
         hasCameraAhead: Boolean = false,
         cameraZoneId: String? = null,
+        isMobilePatrol: Boolean = false,
         alertMode: AlertMode = AlertMode.SOUND,
         onVibrateAlert: (() -> Unit)? = null
     ) {
@@ -232,10 +233,22 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
         val isApproachingOrExceeded = currentSpeedKmh >= approachingThreshold
 
         if (hasCameraAhead && cameraZoneId != null) {
+            val safeMessage = if (isMobilePatrol) {
+                "Potential police speed camera ahead, be careful."
+            } else {
+                "Speed cameras ahead, be careful."
+            }
+
+            val warningMessage = if (isMobilePatrol) {
+                "Potential police speed camera ahead, slow down."
+            } else {
+                "Speed cameras ahead, slow down."
+            }
+
             if (isApproachingOrExceeded) {
                 // In camera zone AND about to break / exceeding limit
                 if (currentTime - lastAlertTimeMs >= cooldownMs || cameraZoneId != lastAnnouncedCameraZoneId) {
-                    dispatchAlert("Speed cameras ahead, slow down.")
+                    dispatchAlert(warningMessage)
                     lastAlertTimeMs = currentTime
                     lastAnnouncedCameraZoneId = cameraZoneId
                     hasApproachingAlertFired = true
@@ -243,7 +256,7 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
             } else {
                 // In camera zone AND driving safely within limit: announce once per corridor entry
                 if (cameraZoneId != lastAnnouncedCameraZoneId) {
-                    dispatchAlert("Speed cameras ahead, be careful.")
+                    dispatchAlert(safeMessage)
                     lastAnnouncedCameraZoneId = cameraZoneId
                     lastAlertTimeMs = currentTime
                 }

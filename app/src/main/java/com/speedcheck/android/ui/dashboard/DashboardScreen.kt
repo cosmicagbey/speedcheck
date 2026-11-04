@@ -185,7 +185,8 @@ fun DashboardScreen(
             SpeedometerGauge(
                 currentSpeedKmh = currentSpeed,
                 speedLimitKmh = currentLimit,
-                alertStatus = alertStatus
+                alertStatus = alertStatus,
+                showDualUnitsMph = userPreferences.showDualUnitsMph
             )
 
             // Early Warning Notification Info

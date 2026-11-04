@@ -75,6 +75,7 @@
       <div class="speed-digital-display">
         <span id="speedNumber" class="speed-number">0</span>
         <span class="speed-unit">KM/H</span>
+        <span id="speedMphUnit" class="speed-unit-mph" style="display:none; font-size:12px; font-weight:bold; color:rgba(255,255,255,0.6); letter-spacing:0.5px; margin-top:1px;">≈ 0 MPH</span>
         <span id="speedMotionTag" class="speed-motion-tag">STOPPED</span>
         
         <div class="effective-limit-badge" title="Active Speed Limit">
@@ -148,6 +149,17 @@
 
         <div class="setting-row">
           <div class="setting-info">
+            <div class="setting-title">US Import Vehicle Mode (Show MPH)</div>
+            <div class="setting-desc">Displays secondary MPH under KM/H for American-spec dashboard clusters (60 MPH ≈ 97 KM/H)</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="dualUnitsMphToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
             <div class="setting-title">Alert Cooldown</div>
             <div class="setting-desc">Interval between repeated over-limit alerts</div>
           </div>
@@ -165,6 +177,10 @@
 
         <button id="openGuideBtn" class="modal-btn" style="background: rgba(252, 209, 22, 0.15); border-color: rgba(252, 209, 22, 0.4); color: var(--ghana-gold);">
           📷 Ghana MTTD Speed Camera Guide
+        </button>
+
+        <button id="openAccuracyBtn" class="modal-btn" style="margin-top: 8px; background: rgba(0, 230, 118, 0.1); border-color: rgba(0, 230, 118, 0.3); color: var(--safe-green);">
+          ⚡ Why Speedometers Lie & GPS Accuracy
         </button>
 
         <button id="openPrivacyBtn" class="modal-btn" style="margin-top: 8px;">
@@ -201,6 +217,36 @@
         </ul>
 
         <button class="modal-btn primary" data-close-modal="guideModal">Got It</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Speedometer Accuracy & GPS Guide Modal -->
+  <div id="accuracyModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>⚡ Why Speedometers Lie & GPS Accuracy</h2>
+        <button class="close-btn" data-close-modal="accuracyModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Your car dashboard almost never displays your true ground speed. Here is what motorists in Ghana need to know:</p>
+        
+        <h3>🛞 1. Tyre Sizes (Abossey Okai Swaps)</h3>
+        <p>Speedometers measure wheel revolutions. Swapping rims or tyres with different overall diameters changes how far you travel per turn. Larger tyres mean you are moving <strong>faster</strong> than your speedometer says!</p>
+
+        <h3>🇺🇸 2. American Imports (MPH vs KM/H)</h3>
+        <p>Many US salvage and direct imports show <strong>MPH</strong> on the large dial:</p>
+        <ul>
+          <li><strong>31 MPH</strong> = 50 KM/H (Urban limit)</li>
+          <li><strong>50 MPH</strong> = 80 KM/H (Highway limit)</li>
+          <li><strong>60 MPH</strong> = 97 KM/H (Over limit!)</li>
+          <li><strong>80 MPH</strong> = 129 KM/H (Dangerous violation)</li>
+        </ul>
+
+        <h3>🛰️ 3. GPS Satellite Ground Truth</h3>
+        <p>Police radars and automated Traffitech cameras calculate true velocity across the earth. SpeedCheck uses satellite Doppler shift to deliver true ground speed, matching what enforcement cameras actually detect.</p>
+
+        <button class="modal-btn primary" data-close-modal="accuracyModal">Understood</button>
       </div>
     </div>
   </div>

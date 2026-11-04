@@ -404,6 +404,7 @@ const state = {
   alertCooldownSeconds: parseInt(localStorage.getItem('sc_cooldown') || '15', 10),
   approachingOffsetKmh: 5,
   isDarkMode: localStorage.getItem('sc_theme') !== 'light',
+  showDualUnitsMph: localStorage.getItem('sc_dual_units_mph') === 'true',
 
   // Motion Detection (Normal walking/stationary vs Vehicle movement)
   motionState: 'STOPPED', // 'STOPPED', 'WAITING_FOR_MOVEMENT', 'DRIVING'
@@ -927,6 +928,17 @@ function updateUI() {
   const speedNumberEl = document.getElementById('speedNumber');
   if (speedNumberEl) speedNumberEl.textContent = speed;
 
+  // Dual MPH Readout (US Import Mode)
+  const speedMphEl = document.getElementById('speedMphUnit');
+  if (speedMphEl) {
+    if (state.showDualUnitsMph) {
+      speedMphEl.style.display = 'block';
+      speedMphEl.textContent = `≈ ${Math.round(speed * 0.621371)} MPH`;
+    } else {
+      speedMphEl.style.display = 'none';
+    }
+  }
+
   // Motion State Tag
   const motionTagEl = document.getElementById('speedMotionTag');
   if (motionTagEl) {
@@ -1214,12 +1226,32 @@ document.addEventListener('DOMContentLoaded', () => {
     settingsBtn.addEventListener('click', () => openModal('settingsModal'));
   }
 
+  // US Import Mode (Dual MPH) Toggle
+  const dualUnitsMphToggle = document.getElementById('dualUnitsMphToggle');
+  if (dualUnitsMphToggle) {
+    dualUnitsMphToggle.checked = state.showDualUnitsMph;
+    dualUnitsMphToggle.addEventListener('change', (e) => {
+      state.showDualUnitsMph = e.target.checked;
+      localStorage.setItem('sc_dual_units_mph', state.showDualUnitsMph);
+      updateUI();
+    });
+  }
+
   // Guide Button
   const guideBtn = document.getElementById('openGuideBtn');
   if (guideBtn) {
     guideBtn.addEventListener('click', () => {
       closeModal('settingsModal');
       openModal('guideModal');
+    });
+  }
+
+  // Accuracy Guide Button
+  const accuracyBtn = document.getElementById('openAccuracyBtn');
+  if (accuracyBtn) {
+    accuracyBtn.addEventListener('click', () => {
+      closeModal('settingsModal');
+      openModal('accuracyModal');
     });
   }
 

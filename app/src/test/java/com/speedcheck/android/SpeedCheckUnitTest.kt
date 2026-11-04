@@ -374,4 +374,19 @@ class SpeedCheckUnitTest {
         assertEquals(5, collapsedList.size)
         assertEquals("borteyman_junction", collapsedList[0].id)
     }
+
+    @Test
+    fun userPreferences_defaultDualUnitsMphIsFalseAndConvertsAccurately() {
+        val prefs = com.speedcheck.android.data.UserPreferences()
+        assertFalse("Dual units MPH should default to false", prefs.showDualUnitsMph)
+
+        // 97 KM/H ≈ 60 MPH test
+        val kmh = 97f
+        val mph = (kmh * 0.621371f).toInt()
+        assertEquals(60, mph)
+
+        // 100 KM/H ≈ 62 MPH
+        val motorwayMph = (100f * 0.621371f).toInt()
+        assertEquals(62, motorwayMph)
+    }
 }

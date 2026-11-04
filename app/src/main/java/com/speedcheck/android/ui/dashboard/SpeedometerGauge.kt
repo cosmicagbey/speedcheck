@@ -57,6 +57,7 @@ fun SpeedometerGauge(
     speedLimitKmh: Int,
     alertStatus: SpeedAlertStatus,
     maxGaugeSpeed: Float = 160f,
+    showDualUnitsMph: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val animatedSpeed by animateFloatAsState(
@@ -213,7 +214,18 @@ fun SpeedometerGauge(
                 letterSpacing = 2.sp
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (showDualUnitsMph) {
+                val mphValue = (currentSpeedKmh * 0.621371f).toInt()
+                Text(
+                    text = "≈ $mphValue MPH",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.50f),
+                    letterSpacing = 0.5.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Authentic Ghana Road Speed Sign Badge (White circular disk with red ring)
             Row(

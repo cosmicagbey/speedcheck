@@ -76,5 +76,11 @@ data class UserPreferences(
     val highContrastMode: Boolean = true,
 
     /** Dark mode theme toggle (true = Dark, false = Light). Default is true for driving glare reduction. */
-    val isDarkMode: Boolean = true
+    val isDarkMode: Boolean = true,
+
+    /**
+     * Whether to display secondary MPH readout alongside KM/H.
+     * Essential for drivers of US-imported vehicles with American-spec instrument clusters.
+     */
+    val showDualUnitsMph: Boolean = false
 )

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -116,6 +117,7 @@ fun SettingsScreen(
         mutableStateOf(userPreferences.speedLimitKmh.toString())
     }
     var showGhanaGuideDialog by remember { mutableStateOf(false) }
+    var showSpeedometerGuideDialog by remember { mutableStateOf(false) }
     var showPrivacyPolicyDialog by remember { mutableStateOf(false) }
     var isCameraListExpanded by remember { mutableStateOf(false) }
 
@@ -581,7 +583,41 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // SECTION 5: In-App Updates
+            // SECTION 5: Vehicle & Display Units (US Imports)
+            SettingsSectionHeader(title = "VEHICLE & DISPLAY UNITS", icon = Icons.Default.DirectionsCar)
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "US Import Vehicle Mode (Show MPH)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Text(
+                                text = "Displays secondary MPH under KM/H for American-spec dashboard clusters (60 MPH ≈ 97 KM/H).",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
+                        }
+                        Switch(
+                            checked = userPreferences.showDualUnitsMph,
+                            onCheckedChange = { scope.launch { repository.updateShowDualUnitsMph(it) } }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // SECTION 6: In-App Updates
             SettingsSectionHeader(title = "IN-APP UPDATES", icon = Icons.Default.SystemUpdate)
             InAppUpdateCard(
                 updateStatus = updateStatus,
@@ -592,13 +628,13 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // SECTION 6: Battery Optimization Status
+            // SECTION 7: Battery Optimization Status
             SettingsSectionHeader(title = "BATTERY MANAGEMENT", icon = Icons.Default.Info)
             BatteryOptimizationCard()
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // SECTION 6: Ghana Road Safety & Speed Camera Regulations
+            // SECTION 8: Ghana Road Safety & Speed Camera Regulations
             Button(
                 onClick = { showGhanaGuideDialog = true },
                 colors = ButtonDefaults.buttonColors(
@@ -614,7 +650,23 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // SECTION 7: Privacy Policy
+            // Speedometer Accuracy & Calibration Advisory
+            Button(
+                onClick = { showSpeedometerGuideDialog = true },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Why Speedometers Lie & GPS Accuracy", fontWeight = FontWeight.SemiBold)
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // SECTION 9: Privacy Policy
             OutlinedButton(
                 onClick = { showPrivacyPolicyDialog = true },
                 modifier = Modifier.fillMaxWidth()
@@ -630,6 +682,10 @@ fun SettingsScreen(
 
     if (showGhanaGuideDialog) {
         GhanaRoadSafetyGuideDialog(onDismiss = { showGhanaGuideDialog = false })
+    }
+
+    if (showSpeedometerGuideDialog) {
+        SpeedometerAccuracyGuideDialog(onDismiss = { showSpeedometerGuideDialog = false })
     }
 
     if (showPrivacyPolicyDialog) {

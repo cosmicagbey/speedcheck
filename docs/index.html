@@ -33,6 +33,7 @@
       </div>
       <div class="header-actions">
         <button id="muteBtn" class="icon-btn" title="Toggle Voice Alerts">🔊</button>
+        <button id="historyBtn" class="icon-btn" title="Speed & Evidence Logs">📋</button>
         <button id="themeBtn" class="icon-btn" title="Toggle Dark/Light Mode">☀️</button>
         <button id="settingsBtn" class="icon-btn" title="Settings">⚙️</button>
       </div>
@@ -63,26 +64,50 @@
       </div>
     </div>
 
-    <!-- Speedometer Gauge Area -->
+    <!-- Speedometer Gauge Area (Modern Electric-Cockpit Cluster) -->
     <div class="speedometer-container">
+      <div id="ambientGlow" class="ambient-glow"></div>
       <svg class="gauge-svg" viewBox="0 0 280 180">
+        <defs>
+          <linearGradient id="safeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#00E676" />
+            <stop offset="100%" stop-color="#00E5FF" />
+          </linearGradient>
+          <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#FFD600" />
+            <stop offset="100%" stop-color="#FF9100" />
+          </linearGradient>
+          <linearGradient id="dangerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#FF3D00" />
+            <stop offset="100%" stop-color="#D50000" />
+          </linearGradient>
+        </defs>
+
         <!-- Background Track Arc (Radius 105, Path length ~330) -->
         <path class="gauge-track" d="M 35 155 A 105 105 0 1 1 245 155" />
-        <!-- Progress Arc -->
+        <!-- Dynamic Gradient Progress Arc -->
         <path id="gaugeProgress" class="gauge-progress" d="M 35 155 A 105 105 0 1 1 245 155" />
       </svg>
 
       <div class="speed-digital-display">
         <span id="speedNumber" class="speed-number">0</span>
-        <span class="speed-unit">KM/H</span>
-        <span id="speedMphUnit" class="speed-unit-mph" style="display:none; font-size:12px; font-weight:bold; color:rgba(255,255,255,0.6); letter-spacing:0.5px; margin-top:1px;">≈ 0 MPH</span>
+        <span class="speed-unit">KM / H</span>
+        <span id="speedMphUnit" class="speed-unit-mph" style="display:none; font-size:11px; font-weight:700; color:rgba(255,255,255,0.55); letter-spacing:0.5px; margin-top:1px;">≈ 0 MPH</span>
         <span id="speedMotionTag" class="speed-motion-tag">STOPPED</span>
         
-        <div class="effective-limit-badge" title="Active Speed Limit">
-          <span class="limit-pill" id="effectiveLimitNumber">80</span>
-          <span>LIMIT</span>
+        <!-- Authentic Ghana Road Speed Sign Badge -->
+        <div class="ghana-road-sign-badge" title="Ghana Speed Limit">
+          <div class="ghana-sign-disk">
+            <span id="effectiveLimitNumber">80</span>
+          </div>
+          <span class="ghana-sign-text">LIMIT <span id="effectiveLimitLabel">80</span></span>
         </div>
       </div>
+    </div>
+
+    <!-- Early Warning Notification Info Pill -->
+    <div id="warningPill" class="warning-pill">
+      Early voice warning at 75 km/h • Limit 80 km/h
     </div>
 
     <!-- Manual Speed Limit Presets -->
@@ -98,25 +123,29 @@
       </div>
     </div>
 
-    <!-- Trip Statistics -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">Max Speed</div>
-        <div class="stat-value" id="statMaxSpeed">0 km/h</div>
+    <!-- Trip Statistics (Glassmorphic Card) -->
+    <div class="stats-glass-card">
+      <div class="stat-col">
+        <div class="stat-label">MAX SPEED</div>
+        <div class="stat-value"><span id="statMaxSpeed">0</span> <span class="stat-unit">km/h</span></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Avg Speed</div>
-        <div class="stat-value" id="statAvgSpeed">0 km/h</div>
+      <div class="stat-divider"></div>
+      <div class="stat-col">
+        <div class="stat-label">AVG SPEED</div>
+        <div class="stat-value"><span id="statAvgSpeed">0</span> <span class="stat-unit">km/h</span></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Distance</div>
-        <div class="stat-value" id="statDistance">0.0 km</div>
+      <div class="stat-divider"></div>
+      <div class="stat-col">
+        <div class="stat-label">DISTANCE</div>
+        <div class="stat-value"><span id="statDistance">0.0</span> <span class="stat-unit">km</span></div>
       </div>
     </div>
 
-    <!-- Big Action Button -->
+    <!-- Big Action Button (Ignition Style) -->
     <button id="mainActionBtn" class="main-action-btn start-btn">
-      <span>▶</span> START MONITORING
+      <span id="mainBtnDot" class="btn-indicator-dot" style="display: none;"></span>
+      <span id="mainBtnIcon">▶</span>
+      <span id="mainBtnText">START MONITORING</span>
     </button>
 
     <!-- iOS Add to Home Screen Banner (visible only on iOS Safari) -->
@@ -136,6 +165,31 @@
         <button class="close-btn" data-close-modal="settingsModal">✕</button>
       </div>
       <div class="modal-body">
+        <!-- Alert Delivery Mode Chips -->
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-title">Alert Delivery Mode</div>
+            <div class="setting-desc">Voice speech, haptic vibration, or silent HUD</div>
+          </div>
+          <div class="alert-mode-chips">
+            <button class="mode-chip selected" data-mode="SOUND">🔊 (Voice)</button>
+            <button class="mode-chip" data-mode="VIBRATE">📳</button>
+            <button class="mode-chip" data-mode="MUTE">🔇</button>
+          </div>
+        </div>
+
+        <!-- Warning Buffer Offset -->
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-title">Warning Buffer</div>
+            <div class="setting-desc">Early alert before reaching target speed limit</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="range" id="bufferOffsetSlider" min="3" max="10" value="5" style="width: 80px; accent-color: var(--safe-green);">
+            <span id="bufferOffsetValue" style="font-weight: bold; font-size: 13px; color: var(--safe-green); min-width: 48px;">5 km/h</span>
+          </div>
+        </div>
+
         <div class="setting-row">
           <div class="setting-info">
             <div class="setting-title">Voice Assistant Style</div>
@@ -190,6 +244,37 @@
     </div>
   </div>
 
+  <!-- Speed & Location Evidence Modal -->
+  <div id="historyModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h2>📋 Speed & Location Evidence</h2>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+            <span id="historyLogCount">0</span> warning & violation logs
+          </div>
+        </div>
+        <button class="close-btn" data-close-modal="historyModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <button id="exportEvidenceBtn" class="modal-btn primary" style="margin-top: 0; padding: 10px 14px; font-size: 12px; flex: 1;">
+            📥 Export Evidence (CSV)
+          </button>
+          <button id="clearHistoryBtn" class="modal-btn" style="margin-top: 0; padding: 10px 14px; font-size: 12px; color: var(--exceeded-red); border-color: rgba(255, 61, 0, 0.4); flex: 1;">
+            🗑️ Clear Logs
+          </button>
+        </div>
+
+        <div id="historyLogsContainer" class="history-logs-container">
+          <div style="text-align: center; color: var(--text-muted); padding: 24px 0; font-size: 13px;">
+            No speed warnings or violations recorded yet.<br>Driving evidence will appear here.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Ghana Speed Camera Guide Modal -->
   <div id="guideModal" class="modal-overlay">
     <div class="modal-content">
@@ -200,18 +285,25 @@
       <div class="modal-body">
         <p>The Ghana Police Service (MTTD) has deployed automated radar speed cameras across major Greater Accra transit links:</p>
         
-        <h3>📍 Monitored Locations & Limits:</h3>
-        <ul>
-          <li><strong>Borteyman Sports Facility Corridor</strong>: 80 km/h</li>
-          <li><strong>N1 Highway (Fiesta Royale Hotel)</strong>: 80 km/h</li>
-          <li><strong>N1 Highway (Baah / Bar Junction)</strong>: 80 km/h</li>
-          <li><strong>Kawukudi (Olusegun Obasanjo Highway)</strong>: 50 km/h</li>
-          <li><strong>Kanda Highway</strong>: 50 km/h</li>
+        <h3>📍 Fixed Camera Corridors (5 Active):</h3>
+        <ul id="guideFixedCameraList" class="camera-zone-list">
+          <!-- Injected by app.js -->
         </ul>
+
+        <div id="extraCamerasContainer" style="display: none;">
+          <h3>⚠️ Potential Police Mobile Patrol Zones:</h3>
+          <ul id="guideMobileCameraList" class="camera-zone-list">
+            <!-- Injected by app.js -->
+          </ul>
+        </div>
+
+        <button id="toggleCameraListBtn" class="modal-btn" style="background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.3); color: var(--accent-cyan); margin: 10px 0;">
+          +23 more speed camera zones ▾
+        </button>
 
         <h3>🛡️ Road Safety Tips:</h3>
         <ul>
-          <li><strong>Approaching Alert</strong>: SpeedCheck warns you 5 km/h before reaching the limit to allow smooth braking.</li>
+          <li><strong>Approaching Alert</strong>: SpeedCheck warns you before reaching the limit to allow smooth braking.</li>
           <li><strong>Urban Centers</strong>: The default speed limit in Accra town areas is 50 km/h unless otherwise posted.</li>
           <li><strong>School & Hospital Feeder Roads</strong>: Strictly 30 km/h.</li>
         </ul>

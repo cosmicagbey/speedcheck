@@ -402,9 +402,11 @@ const state = {
   voiceAlertsEnabled: localStorage.getItem('sc_voice_alerts') !== 'false',
   voiceGender: localStorage.getItem('sc_voice_gender') || 'FEMALE',
   alertCooldownSeconds: parseInt(localStorage.getItem('sc_cooldown') || '15', 10),
-  approachingOffsetKmh: 5,
+  approachingOffsetKmh: parseInt(localStorage.getItem('sc_buffer_offset') || '5', 10),
   isDarkMode: localStorage.getItem('sc_theme') !== 'light',
   showDualUnitsMph: localStorage.getItem('sc_dual_units_mph') === 'true',
+  evidenceLogs: JSON.parse(localStorage.getItem('sc_speed_evidence') || '[]'),
+  isCameraListExpanded: false,
 
   // Motion Detection (Normal walking/stationary vs Vehicle movement)
   motionState: 'STOPPED', // 'STOPPED', 'WAITING_FOR_MOVEMENT', 'DRIVING'
@@ -618,7 +620,107 @@ function triggerAlert(message) {
   }
 }
 
-// 6. Unified Alert Logic (Sound / Vibrate / Mute)
+// 6. Evidence & History Logging (Approaching buffer warnings & speed violations only)
+function logEvidence(speedKmh, limitKmh, status, roadName) {
+  if (status !== 'APPROACHING' && status !== 'EXCEEDED') return;
+  const now = Date.now();
+  const lastLog = state.evidenceLogs && state.evidenceLogs[0];
+  if (lastLog && (now - lastLog.timestamp < 10000) && lastLog.status === status) {
+    return; // Throttle duplicate events within 10 seconds
+  }
+
+  const entry = {
+    id: 'log_' + now,
+    timestamp: now,
+    speedKmh: Math.round(speedKmh),
+    limitKmh: limitKmh,
+    status: status,
+    roadName: roadName || 'Ghana Road Corridor'
+  };
+
+  if (!state.evidenceLogs) state.evidenceLogs = [];
+  state.evidenceLogs.unshift(entry);
+  if (state.evidenceLogs.length > 100) {
+    state.evidenceLogs = state.evidenceLogs.slice(0, 100);
+  }
+  localStorage.setItem('sc_speed_evidence', JSON.stringify(state.evidenceLogs));
+  renderEvidenceLogs();
+}
+
+function renderEvidenceLogs() {
+  const container = document.getElementById('historyLogsContainer');
+  const countEl = document.getElementById('historyLogCount');
+  const logs = state.evidenceLogs || [];
+
+  if (countEl) countEl.textContent = logs.length;
+  if (!container) return;
+
+  if (logs.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); padding: 24px 0; font-size: 13px;">
+        No speed warnings or violations recorded yet.<br>Driving evidence will appear here.
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = logs.map(log => {
+    const d = new Date(log.timestamp);
+    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const isExceeded = log.status === 'EXCEEDED';
+    const statusLabel = isExceeded ? 'SPEED LIMIT EXCEEDED' : 'WARNING BUFFER REACHED';
+    const badgeClass = isExceeded ? 'exceeded' : 'approaching';
+
+    return `
+      <div class="log-entry-card ${badgeClass}">
+        <div class="log-main-info">
+          <span class="log-road-name">${log.roadName}</span>
+          <span class="log-time-meta">${dateStr} • ${timeStr} • <strong style="color:${isExceeded ? 'var(--exceeded-red)' : 'var(--approaching-amber)'}">${statusLabel}</strong></span>
+        </div>
+        <div class="log-speed-badge ${badgeClass}">
+          <span class="log-speed-num">${log.speedKmh} km/h</span>
+          <span class="log-limit-info">LIMIT ${log.limitKmh}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function exportEvidenceCsv() {
+  const logs = state.evidenceLogs || [];
+  if (logs.length === 0) {
+    alert("No evidence logs recorded to export yet.");
+    return;
+  }
+
+  let csv = "Timestamp,Date,Time,Status,Speed (km/h),Limit (km/h),Road Name\n";
+  logs.forEach(log => {
+    const d = new Date(log.timestamp);
+    const dateStr = d.toLocaleDateString();
+    const timeStr = d.toLocaleTimeString();
+    const safeRoad = (log.roadName || '').replace(/"/g, '""');
+    csv += `"${log.timestamp}","${dateStr}","${timeStr}","${log.status}",${log.speedKmh},${log.limitKmh},"${safeRoad}"\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `SpeedCheck_Ghana_Evidence_${Date.now()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function clearEvidenceLogs() {
+  if (confirm("Are you sure you want to clear all speed evidence logs?")) {
+    state.evidenceLogs = [];
+    localStorage.removeItem('sc_speed_evidence');
+    renderEvidenceLogs();
+  }
+}
+
+// 7. Unified Alert Logic (Sound / Vibrate / Mute)
 function processSpeedAlerts(speedKmh, limitKmh) {
   if (state.alertMode === 'MUTE' || !state.isMonitoring) return;
   if (speedKmh < 8.0) return; // Suppress alerts when stationary or walking
@@ -627,6 +729,15 @@ function processSpeedAlerts(speedKmh, limitKmh) {
   const cooldownMs = state.alertCooldownSeconds * 1000;
   const approachingThreshold = Math.max(1, limitKmh - state.approachingOffsetKmh);
   const isApproachingOrExceeded = speedKmh >= approachingThreshold;
+
+  const currentRoad = (state.activeZone && (state.activeZone.roadName || state.activeZone.name)) ||
+                      (state.activeSpeedLimitZone && state.activeSpeedLimitZone.name) ||
+                      (limitKmh === 80 ? "Highway Corridor" : "Urban Road Corridor");
+
+  if (isApproachingOrExceeded) {
+    const status = speedKmh >= limitKmh ? 'EXCEEDED' : 'APPROACHING';
+    logEvidence(speedKmh, limitKmh, status, currentRoad);
+  }
 
   const hasCameraAhead = state.hasCameraAhead;
   const cameraZoneId = hasCameraAhead && state.activeZone ? state.activeZone.id : null;
@@ -962,6 +1073,7 @@ function updateUI() {
   const ratio = Math.min(1, speed / maxDisplaySpeed);
   const offset = 330 - (ratio * 330);
   const gaugeEl = document.getElementById('gaugeProgress');
+  const glowEl = document.getElementById('ambientGlow');
 
   // Status and Gauge Color States
   const badgeEl = document.getElementById('statusBadge');
@@ -979,14 +1091,26 @@ function updateUI() {
   if (gaugeEl) {
     gaugeEl.style.strokeDashoffset = offset;
     if (alertState === 'exceeded') {
-      gaugeEl.style.stroke = 'var(--exceeded-red)';
+      gaugeEl.style.stroke = 'url(#dangerGrad)';
+      gaugeEl.style.filter = 'drop-shadow(0 0 16px rgba(255, 61, 0, 0.45))';
       if (speedNumberEl) speedNumberEl.style.color = 'var(--exceeded-red)';
+      if (glowEl) {
+        glowEl.style.background = 'radial-gradient(circle, rgba(255, 61, 0, 0.24) 0%, rgba(255, 61, 0, 0.05) 60%, transparent 75%)';
+      }
     } else if (alertState === 'approaching') {
-      gaugeEl.style.stroke = 'var(--approaching-amber)';
+      gaugeEl.style.stroke = 'url(#amberGrad)';
+      gaugeEl.style.filter = 'drop-shadow(0 0 14px rgba(255, 214, 0, 0.35))';
       if (speedNumberEl) speedNumberEl.style.color = 'var(--approaching-amber)';
+      if (glowEl) {
+        glowEl.style.background = 'radial-gradient(circle, rgba(255, 214, 0, 0.18) 0%, rgba(255, 214, 0, 0.04) 60%, transparent 75%)';
+      }
     } else {
-      gaugeEl.style.stroke = 'var(--safe-green)';
+      gaugeEl.style.stroke = 'url(#safeGrad)';
+      gaugeEl.style.filter = 'drop-shadow(0 0 12px var(--safe-glow))';
       if (speedNumberEl) speedNumberEl.style.color = 'var(--text-primary)';
+      if (glowEl) {
+        glowEl.style.background = 'radial-gradient(circle, rgba(0, 230, 118, 0.16) 0%, rgba(0, 230, 118, 0.03) 60%, transparent 75%)';
+      }
     }
   }
 
@@ -1007,9 +1131,18 @@ function updateUI() {
     }
   }
 
-  // Effective Limit Pill
+  // Effective Limit Pill & Label
   const limitPillEl = document.getElementById('effectiveLimitNumber');
   if (limitPillEl) limitPillEl.textContent = limit;
+  const limitLabelEl = document.getElementById('effectiveLimitLabel');
+  if (limitLabelEl) limitLabelEl.textContent = limit;
+
+  // Early Warning Notification Info Pill
+  const warningPillEl = document.getElementById('warningPill');
+  if (warningPillEl) {
+    warningPillEl.className = 'warning-pill ' + alertState;
+    warningPillEl.innerHTML = `Early voice warning at <strong>${approachingThreshold} km/h</strong> • Limit ${limit} km/h`;
+  }
 
   // Radar Card
   const radarCard = document.getElementById('radarCard');
@@ -1039,26 +1172,33 @@ function updateUI() {
 
   // Action Button
   const mainBtn = document.getElementById('mainActionBtn');
+  const mainBtnDot = document.getElementById('mainBtnDot');
+  const mainBtnIcon = document.getElementById('mainBtnIcon');
+  const mainBtnText = document.getElementById('mainBtnText');
   if (mainBtn) {
     if (state.isMonitoring) {
       mainBtn.className = 'main-action-btn stop-btn';
-      mainBtn.innerHTML = `<span>⏹</span> STOP MONITORING`;
+      if (mainBtnDot) mainBtnDot.style.display = 'inline-block';
+      if (mainBtnIcon) mainBtnIcon.style.display = 'none';
+      if (mainBtnText) mainBtnText.textContent = 'STOP MONITORING';
     } else {
       mainBtn.className = 'main-action-btn start-btn';
-      mainBtn.innerHTML = `<span>▶</span> START MONITORING`;
+      if (mainBtnDot) mainBtnDot.style.display = 'none';
+      if (mainBtnIcon) mainBtnIcon.style.display = 'inline-block';
+      if (mainBtnText) mainBtnText.textContent = 'START MONITORING';
     }
   }
 
   // Trip Stats
   const maxSpeedEl = document.getElementById('statMaxSpeed');
-  if (maxSpeedEl) maxSpeedEl.textContent = `${Math.round(state.trip.maxSpeedKmh)} km/h`;
+  if (maxSpeedEl) maxSpeedEl.textContent = `${Math.round(state.trip.maxSpeedKmh)}`;
 
   const avgSpeedEl = document.getElementById('statAvgSpeed');
   const avg = state.trip.speedReadingsCount > 0 ? Math.round(state.trip.speedSum / state.trip.speedReadingsCount) : 0;
-  if (avgSpeedEl) avgSpeedEl.textContent = `${avg} km/h`;
+  if (avgSpeedEl) avgSpeedEl.textContent = `${avg}`;
 
   const distEl = document.getElementById('statDistance');
-  if (distEl) distEl.textContent = `${state.trip.distanceKm.toFixed(1)} km`;
+  if (distEl) distEl.textContent = `${state.trip.distanceKm.toFixed(1)}`;
 
   // Manual Limit Preset Chips
   document.querySelectorAll('.chip-btn[data-limit]').forEach(chip => {
@@ -1070,7 +1210,24 @@ function updateUI() {
     }
   });
 
-  // Alert Mode Button Icon (Sound -> Vibrate -> Mute)
+  // Alert Mode Chips (in Settings modal)
+  document.querySelectorAll('.mode-chip').forEach(chip => {
+    if (chip.dataset.mode === state.alertMode) {
+      chip.classList.add('selected');
+    } else {
+      chip.classList.remove('selected');
+    }
+  });
+
+  // Warning Buffer Slider (in Settings modal)
+  const bufferSlider = document.getElementById('bufferOffsetSlider');
+  const bufferVal = document.getElementById('bufferOffsetValue');
+  if (bufferSlider && bufferVal) {
+    bufferSlider.value = state.approachingOffsetKmh;
+    bufferVal.textContent = `${state.approachingOffsetKmh} km/h`;
+  }
+
+  // Alert Mode Button Icon in Header (Sound -> Vibrate -> Mute)
   const muteBtn = document.getElementById('muteBtn');
   if (muteBtn) {
     if (state.alertMode === 'SOUND') {
@@ -1220,6 +1377,92 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // History & Evidence Modal Button
+  const historyBtn = document.getElementById('historyBtn');
+  if (historyBtn) {
+    historyBtn.addEventListener('click', () => {
+      renderEvidenceLogs();
+      openModal('historyModal');
+    });
+  }
+
+  // Export Evidence CSV
+  const exportEvidenceBtn = document.getElementById('exportEvidenceBtn');
+  if (exportEvidenceBtn) {
+    exportEvidenceBtn.addEventListener('click', exportEvidenceCsv);
+  }
+
+  // Clear History Logs
+  const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+  if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener('click', clearEvidenceLogs);
+  }
+
+  // Alert Mode Chips (Settings modal)
+  document.querySelectorAll('.mode-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const mode = chip.dataset.mode;
+      state.alertMode = mode;
+      state.voiceAlertsEnabled = (mode === 'SOUND');
+      if (mode === 'VIBRATE' && 'vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
+      localStorage.setItem('sc_alert_mode', mode);
+      localStorage.setItem('sc_voice_alerts', state.voiceAlertsEnabled);
+      updateUI();
+    });
+  });
+
+  // Warning Buffer Offset Slider (Settings modal)
+  const bufferSlider = document.getElementById('bufferOffsetSlider');
+  if (bufferSlider) {
+    bufferSlider.value = state.approachingOffsetKmh;
+    bufferSlider.addEventListener('input', (e) => {
+      state.approachingOffsetKmh = parseInt(e.target.value, 10);
+      localStorage.setItem('sc_buffer_offset', state.approachingOffsetKmh);
+      updateUI();
+    });
+  }
+
+  // Camera Zone Collapsible List in Guide Modal
+  function renderCameraLists() {
+    const fixedList = document.getElementById('guideFixedCameraList');
+    const mobileList = document.getElementById('guideMobileCameraList');
+    if (!fixedList || !mobileList) return;
+
+    const fixed = GHANA_SPEED_CAMERAS.filter(c => !c.isMobilePatrol);
+    const mobile = GHANA_SPEED_CAMERAS.filter(c => c.isMobilePatrol);
+
+    fixedList.innerHTML = fixed.map(c => `
+      <li class="camera-zone-item">
+        <span class="cam-name">📍 ${c.name}</span>
+        <span class="cam-limit">${c.speedLimitKmh} km/h</span>
+      </li>
+    `).join('');
+
+    mobileList.innerHTML = mobile.map(c => `
+      <li class="camera-zone-item">
+        <span class="cam-name">⚠️ ${c.name}</span>
+        <span class="cam-limit">${c.speedLimitKmh} km/h</span>
+      </li>
+    `).join('');
+  }
+
+  const toggleCamBtn = document.getElementById('toggleCameraListBtn');
+  const extraCams = document.getElementById('extraCamerasContainer');
+  if (toggleCamBtn && extraCams) {
+    toggleCamBtn.addEventListener('click', () => {
+      state.isCameraListExpanded = !state.isCameraListExpanded;
+      if (state.isCameraListExpanded) {
+        extraCams.style.display = 'block';
+        toggleCamBtn.textContent = 'Collapse extra camera zones ▴';
+      } else {
+        extraCams.style.display = 'none';
+        toggleCamBtn.textContent = '+23 more speed camera zones ▾';
+      }
+    });
+  }
+
   // Settings Button
   const settingsBtn = document.getElementById('settingsBtn');
   if (settingsBtn) {
@@ -1316,5 +1559,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  renderCameraLists();
+  renderEvidenceLogs();
   updateUI();
 });

@@ -283,23 +283,40 @@ input:checked + .slider:before {
   color: var(--accent-cyan);
 }
 
-/* Speedometer Gauge Area */
+/* Speedometer Gauge Area (Electric Cockpit Redesign) */
 .speedometer-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
-  margin: 6px 0;
-  padding: 6px 0 10px 0;
+  margin: 4px 0 2px 0;
+  padding: 4px 0 8px 0;
   width: 100%;
+}
+
+.ambient-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 230, 118, 0.16) 0%, rgba(0, 230, 118, 0.03) 60%, transparent 75%);
+  pointer-events: none;
+  filter: blur(24px);
+  transition: all 0.4s ease;
+  z-index: 1;
 }
 
 .gauge-svg {
   width: 100%;
   max-width: 320px;
-  height: 200px;
+  height: 195px;
   overflow: visible;
+  position: relative;
+  z-index: 2;
 }
 
 .gauge-track {
@@ -310,39 +327,40 @@ input:checked + .slider:before {
 }
 
 [data-theme="light"] .gauge-track {
-  stroke: rgba(0, 0, 0, 0.08);
+  stroke: rgba(0, 0, 0, 0.07);
 }
 
 .gauge-progress {
   fill: none;
-  stroke: var(--safe-green);
+  stroke: url(#safeGrad);
   stroke-width: 14;
   stroke-linecap: round;
   stroke-dasharray: 330;
   stroke-dashoffset: 330;
   transition: stroke-dashoffset 0.35s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.3s ease;
-  filter: drop-shadow(0 0 12px var(--safe-glow));
+  filter: drop-shadow(0 0 14px var(--safe-glow));
 }
 
 .speed-digital-display {
   position: absolute;
-  top: 48px;
+  top: 42px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  z-index: 3;
 }
 
 .speed-number {
-  font-size: 64px;
+  font-size: 72px;
   font-weight: 900;
   line-height: 1;
-  letter-spacing: -1px;
+  letter-spacing: -2px;
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
   transition: color 0.25s ease;
-  max-width: 200px;
+  max-width: 220px;
   text-align: center;
 }
 
@@ -368,36 +386,80 @@ input:checked + .slider:before {
   color: var(--safe-green);
 }
 
-.effective-limit-badge {
+/* Authentic Ghana Road Speed Sign Badge (White circular disk with red ring) */
+.ghana-road-sign-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   margin-top: 6px;
-  padding: 4px 12px;
-  border-radius: 12px;
-  background: var(--surface-color);
-  border: 1px solid var(--surface-border);
-  font-size: 12px;
-  font-weight: 700;
+  padding: 3px 10px 3px 4px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
-.effective-limit-badge .limit-pill {
-  width: 22px;
-  height: 22px;
+[data-theme="light"] .ghana-road-sign-badge {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.ghana-sign-disk {
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  border: 2px solid var(--ghana-red);
-  background: white;
-  color: black;
+  border: 3px solid #EF3340;
+  background: #FFFFFF;
+  color: #0F172A;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
   font-weight: 900;
+  letter-spacing: -0.5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.ghana-sign-text {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+}
+
+/* Early Warning Notification Info Pill */
+.warning-pill {
+  width: 100%;
+  max-width: 380px;
+  margin: 6px auto 10px auto;
+  padding: 6px 14px;
+  border-radius: 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--surface-border);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+}
+
+.warning-pill.approaching {
+  color: var(--approaching-amber);
+  border-color: rgba(255, 214, 0, 0.4);
+  background: rgba(255, 214, 0, 0.08);
+}
+
+.warning-pill.exceeded {
+  color: var(--exceeded-red);
+  border-color: rgba(255, 61, 0, 0.4);
+  background: rgba(255, 61, 0, 0.1);
+  font-weight: 700;
 }
 
 /* Speed Limit Presets */
 .preset-section {
-  margin: 12px 0;
+  margin: 8px 0;
 }
 
 .preset-title {
@@ -443,53 +505,72 @@ input:checked + .slider:before {
   border-style: dashed;
 }
 
-/* Trip Stats Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin: 10px 0 16px 0;
-}
-
-.stat-card {
+/* Modern Trip Stats Glass Card */
+.stats-glass-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
   background: var(--surface-color);
   border: 1px solid var(--surface-border);
-  border-radius: var(--card-radius);
-  padding: 10px;
+  border-radius: 18px;
+  padding: 12px 8px;
+  margin: 10px 0 16px 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-col {
+  flex: 1;
   text-align: center;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="light"] .stat-divider {
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .stat-label {
   font-size: 10px;
   font-weight: 700;
   color: var(--text-muted);
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
 }
 
 .stat-value {
   font-size: 18px;
-  font-weight: 800;
-  margin-top: 4px;
+  font-weight: 900;
+  margin-top: 3px;
   color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Big Action Button */
+.stat-unit {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Big Action Button (Ignition Style) */
 .main-action-btn {
   width: 100%;
   padding: 16px;
-  border-radius: var(--btn-radius);
+  border-radius: 20px;
   border: none;
   font-size: 17px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
 .main-action-btn:active {
@@ -497,13 +578,28 @@ input:checked + .slider:before {
 }
 
 .main-action-btn.start-btn {
-  background: linear-gradient(135deg, #00E676, #00B0FF);
-  color: #000000;
+  background: linear-gradient(135deg, #00E676, #00E5FF);
+  color: #0F172A;
+  box-shadow: 0 6px 20px rgba(0, 230, 118, 0.28);
 }
 
 .main-action-btn.stop-btn {
   background: linear-gradient(135deg, #FF3D00, #D50000);
   color: #FFFFFF;
+  box-shadow: 0 6px 20px rgba(255, 61, 0, 0.35);
+}
+
+.btn-indicator-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  animation: pulse-dot 1s infinite alternate;
+}
+
+@keyframes pulse-dot {
+  from { opacity: 0.4; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1.1); }
 }
 
 /* iOS Installation Banner */
@@ -685,4 +781,144 @@ input:checked + .slider:before {
 
 .permission-help-card li {
   margin-bottom: 4px;
+}
+
+/* Alert Mode Chips */
+.alert-mode-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.mode-chip {
+  background: var(--surface-color);
+  border: 1px solid var(--surface-border);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-chip.selected {
+  background: var(--safe-green);
+  border-color: var(--safe-green);
+  color: #0F172A;
+}
+
+/* Camera Zone List in Guide */
+.camera-zone-list {
+  list-style: none;
+  padding: 0 !important;
+  margin: 6px 0 10px 0;
+}
+
+.camera-zone-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+[data-theme="light"] .camera-zone-item {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+.camera-zone-item .cam-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.camera-zone-item .cam-limit {
+  font-weight: 800;
+  color: var(--safe-green);
+  background: rgba(0, 230, 118, 0.12);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+/* History / Evidence Logs */
+.history-logs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.log-entry-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+[data-theme="light"] .log-entry-card {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.log-entry-card.approaching {
+  border-left: 4px solid var(--approaching-amber);
+}
+
+.log-entry-card.exceeded {
+  border-left: 4px solid var(--exceeded-red);
+}
+
+.log-main-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.log-road-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.log-time-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.log-speed-badge {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.log-speed-num {
+  font-size: 16px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-speed-badge.approaching .log-speed-num {
+  color: var(--approaching-amber);
+}
+
+.log-speed-badge.exceeded .log-speed-num {
+  color: var(--exceeded-red);
+}
+
+.log-limit-info {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 600;
 }

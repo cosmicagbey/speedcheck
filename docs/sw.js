@@ -1,4 +1,4 @@
-const CACHE_NAME = 'speedcheck-v1.0.2';
+const CACHE_NAME = 'speedcheck-v1.0.6';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

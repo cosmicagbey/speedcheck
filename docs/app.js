@@ -408,8 +408,11 @@ const state = {
   evidenceLogs: JSON.parse(localStorage.getItem('sc_speed_evidence') || '[]'),
   isCameraListExpanded: false,
 
-  // Motion Detection (Normal walking/stationary vs Vehicle movement)
-  motionState: 'STOPPED', // 'STOPPED', 'WAITING_FOR_MOVEMENT', 'DRIVING'
+  // Motion Detection & Stationary Anchor (eliminates idle GPS wander/drift)
+  motionState: 'STOPPED', // 'STOPPED', 'MANEUVERING', 'DRIVING'
+  isVehicleMoving: false,
+  stationaryAnchor: null, // { lat, lon, time }
+  consecutiveSlowReadings: 0,
   consecutiveDrivingReadings: 0,
   stationarySeconds: 0,
 
@@ -723,7 +726,7 @@ function clearEvidenceLogs() {
 // 7. Unified Alert Logic (Sound / Vibrate / Mute)
 function processSpeedAlerts(speedKmh, limitKmh) {
   if (state.alertMode === 'MUTE' || !state.isMonitoring) return;
-  if (speedKmh < 8.0) return; // Suppress alerts when stationary or walking
+  if (speedKmh < MIN_VEHICLE_SPEED_KMH) return; // Suppress alerts when stationary, idle, or walking
 
   const now = Date.now();
   const cooldownMs = state.alertCooldownSeconds * 1000;
@@ -805,74 +808,161 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// Minimum vehicle speed threshold in km/h (matching Android SpeedTrackingService MIN_VEHICLE_SPEED_KMH = 8.0f)
+// Speeds below 8.0 km/h are clamped to 0 km/h to eliminate idle jitter, walking noise, and stationary GPS drift.
+const MIN_VEHICLE_SPEED_KMH = 8.0;
+
 // 8. Jitter-Resistant GPS Speed & Vehicle Motion Evaluation
 function handlePositionUpdate(position) {
   const coords = position.coords;
+  const now = position.timestamp || Date.now();
+  const accuracy = (coords.accuracy !== null && !isNaN(coords.accuracy)) ? coords.accuracy : 15;
 
-  // Filter 1: Discard wildly inaccurate GPS readings (accuracy > 35 meters)
-  // This prevents cell-tower triangulation jumps from causing 100+ km/h spikes while stationary
-  if (coords.accuracy && coords.accuracy > 35) {
-    console.warn(`GPS accuracy low (${Math.round(coords.accuracy)}m) - filtering position`);
-    if (state.lastPosition === null) {
-      state.lastPosition = position;
-    }
+  // Filter 1: Discard readings with severely degraded accuracy (> 35 meters)
+  // This prevents cell-tower triangulation jumps from causing false speed spikes while stationary
+  if (accuracy > 35) {
+    console.warn(`GPS accuracy low (${Math.round(accuracy)}m) - filtering position`);
     return;
   }
 
   let rawCalculatedSpeed = 0;
-  const now = position.timestamp || Date.now();
+  const hasHardwareSpeed = (coords.speed !== null && !isNaN(coords.speed) && coords.speed >= 0);
 
-  // Priority 1: Hardware Doppler GPS Speed from device chip
-  if (coords.speed !== null && !isNaN(coords.speed) && coords.speed >= 0) {
-    rawCalculatedSpeed = coords.speed * 3.6;
-  } else if (state.lastPosition) {
-    // Priority 2: Fallback delta-distance calculation with safeguards
-    const prev = state.lastPosition;
-    const prevTime = prev.timestamp || now;
-    const deltaSeconds = (now - prevTime) / 1000;
+  if (hasHardwareSpeed) {
+    // Priority 1: Hardware Doppler GPS Speed from device chip
+    // Doppler frequency shift directly measures velocity without coordinate delta noise.
+    const hwSpeedKmh = coords.speed * 3.6;
+    if (hwSpeedKmh >= MIN_VEHICLE_SPEED_KMH) {
+      rawCalculatedSpeed = hwSpeedKmh;
+      state.isVehicleMoving = true;
+      state.stationaryAnchor = null;
+      state.consecutiveSlowReadings = 0;
+    } else {
+      // Speed below 8 km/h: device is stationary / idle
+      rawCalculatedSpeed = 0;
+      state.isVehicleMoving = false;
+      state.stationaryAnchor = {
+        lat: coords.latitude,
+        lon: coords.longitude,
+        time: now
+      };
+    }
+  } else {
+    // Priority 2: Fallback Delta-Distance with Stationary Anchor Filtering
+    // Used when browser does not expose coords.speed (e.g. Safari on iOS, desktop browsers, or stationary indoor GPS).
+    if (!state.stationaryAnchor) {
+      state.stationaryAnchor = {
+        lat: coords.latitude,
+        lon: coords.longitude,
+        time: now
+      };
+    }
 
-    // Reject division by tiny time intervals (< 1.0 second) to prevent math spikes
-    if (deltaSeconds >= 1.0) {
-      const distMeters = calculateDistanceMeters(
-        prev.coords.latitude,
-        prev.coords.longitude,
+    if (!state.isVehicleMoving) {
+      // Current state: STATIONARY / IDLE
+      // Measure cumulative drift from stationary anchor point to filter out GPS wander/multipath
+      const distFromAnchor = calculateDistanceMeters(
+        state.stationaryAnchor.lat,
+        state.stationaryAnchor.lon,
         coords.latitude,
         coords.longitude
       );
+      const deltaFromAnchorSec = Math.max(1.0, (now - state.stationaryAnchor.time) / 1000);
 
-      // Ignore micro-drift under 3.5 meters (natural GPS wobble)
-      if (distMeters >= 3.5) {
-        const unconstrainedSpeed = (distMeters / deltaSeconds) * 3.6;
+      // Stationary drift radius: GPS coordinates naturally wander within ~12m or accuracy margin
+      const driftRadius = Math.max(12.0, accuracy * 0.75);
 
-        // Physical Acceleration Sanity Check:
-        // A normal vehicle cannot accelerate faster than ~30 km/h per second.
-        // Clamping prevents GPS teleport jumps from registering as 135 km/h.
-        const maxPermittedSpeed = state.currentSpeedKmh + (30 * deltaSeconds);
-        rawCalculatedSpeed = Math.min(unconstrainedSpeed, maxPermittedSpeed);
+      if (distFromAnchor < driftRadius) {
+        // Device is still within stationary wander bubble — definitely 0 km/h!
+        rawCalculatedSpeed = 0;
+        // Slowly adapt anchor to centroid to track gradual satellite constellation changes
+        state.stationaryAnchor.lat = (state.stationaryAnchor.lat * 0.85) + (coords.latitude * 0.15);
+        state.stationaryAnchor.lon = (state.stationaryAnchor.lon * 0.85) + (coords.longitude * 0.15);
+      } else {
+        // Displacement broke outside the drift radius! Calculate velocity from anchor
+        const speedFromAnchor = (distFromAnchor / deltaFromAnchorSec) * 3.6;
+
+        if (speedFromAnchor >= MIN_VEHICLE_SPEED_KMH) {
+          // Genuine vehicle movement confirmed! Transition from stationary to driving
+          state.isVehicleMoving = true;
+          state.stationaryAnchor = null;
+          state.consecutiveSlowReadings = 0;
+          rawCalculatedSpeed = Math.min(speedFromAnchor, 160);
+        } else {
+          // Slow drift / walking (< 8 km/h), keep stationary
+          rawCalculatedSpeed = 0;
+          state.stationaryAnchor = {
+            lat: coords.latitude,
+            lon: coords.longitude,
+            time: now
+          };
+        }
       }
     } else {
-      // Time delta too small, carry forward current speed without sudden spikes
-      rawCalculatedSpeed = state.currentSpeedKmh;
+      // Current state: MOVING
+      // Calculate delta from previous location fix
+      if (state.lastPosition) {
+        const prev = state.lastPosition;
+        const prevTime = prev.timestamp || now;
+        const deltaSeconds = (now - prevTime) / 1000;
+
+        if (deltaSeconds >= 0.8) {
+          const distMeters = calculateDistanceMeters(
+            prev.coords.latitude,
+            prev.coords.longitude,
+            coords.latitude,
+            coords.longitude
+          );
+
+          const unconstrainedSpeed = (distMeters / deltaSeconds) * 3.6;
+
+          // Physical Acceleration Sanity Check:
+          // Clamps unrealistic jumps (max 25 km/h per second acceleration)
+          const maxPermitted = (state.smoothedSpeedKmh > 0 ? state.smoothedSpeedKmh : 20) + (25 * deltaSeconds);
+          const computedSpeed = Math.min(unconstrainedSpeed, maxPermitted);
+
+          if (computedSpeed < MIN_VEHICLE_SPEED_KMH) {
+            // Speed dropped below threshold: count consecutive slow readings
+            state.consecutiveSlowReadings = (state.consecutiveSlowReadings || 0) + 1;
+            if (state.consecutiveSlowReadings >= 2) {
+              // Confirmed vehicle stopped
+              state.isVehicleMoving = false;
+              state.stationaryAnchor = {
+                lat: coords.latitude,
+                lon: coords.longitude,
+                time: now
+              };
+              rawCalculatedSpeed = 0;
+            } else {
+              rawCalculatedSpeed = 0;
+            }
+          } else {
+            state.consecutiveSlowReadings = 0;
+            rawCalculatedSpeed = computedSpeed;
+          }
+        } else {
+          // Sub-second update: preserve current speed without sudden spikes
+          rawCalculatedSpeed = state.currentSpeedKmh;
+        }
+      }
     }
   }
 
-  // Filter 2: Deadband for Stationary / Walking
-  // Speeds under 8 km/h are considered stationary (eliminates walking/pocket wobble)
-  if (rawCalculatedSpeed < 8.0) {
+  // Filter 2: Deadband Cutoff (< 8.0 km/h -> 0 km/h)
+  // Matches Android SpeedTrackingService MIN_VEHICLE_SPEED_KMH = 8.0f
+  if (rawCalculatedSpeed < MIN_VEHICLE_SPEED_KMH) {
     rawCalculatedSpeed = 0;
-  }
-
-  // Filter 3: Exponential Moving Average Smoothing
-  // Produces a smooth gauge needle and removes jitter
-  if (rawCalculatedSpeed === 0) {
     state.smoothedSpeedKmh = 0;
-  } else if (state.smoothedSpeedKmh === 0) {
-    state.smoothedSpeedKmh = rawCalculatedSpeed;
+    state.currentSpeedKmh = 0;
   } else {
-    state.smoothedSpeedKmh = (0.45 * rawCalculatedSpeed) + (0.55 * state.smoothedSpeedKmh);
+    // Filter 3: Exponential Moving Average Smoothing for realistic gauge needle
+    if (state.smoothedSpeedKmh === 0) {
+      state.smoothedSpeedKmh = rawCalculatedSpeed;
+    } else {
+      state.smoothedSpeedKmh = (0.55 * rawCalculatedSpeed) + (0.45 * state.smoothedSpeedKmh);
+    }
+    state.currentSpeedKmh = state.smoothedSpeedKmh;
   }
-
-  state.currentSpeedKmh = Math.max(0, state.smoothedSpeedKmh);
 
   // Motion State & Vehicle Detection:
   // Requires consistent speed >= 18 km/h to confirm vehicle driving
@@ -882,29 +972,34 @@ function handlePositionUpdate(position) {
     if (state.consecutiveDrivingReadings >= 2) {
       state.motionState = 'DRIVING';
     }
-  } else if (state.currentSpeedKmh >= 6) {
+  } else if (state.currentSpeedKmh >= MIN_VEHICLE_SPEED_KMH) {
     state.motionState = 'MANEUVERING';
   } else {
     state.consecutiveDrivingReadings = 0;
     state.motionState = 'STOPPED';
   }
 
-  // Update Trip Stats only during genuine driving movement
-  if (state.lastPosition && state.currentSpeedKmh >= 6) {
+  // Update Trip Stats only during genuine vehicle movement (>= 8.0 km/h)
+  if (state.lastPosition && state.currentSpeedKmh >= MIN_VEHICLE_SPEED_KMH) {
     const dKm = calculateDistanceMeters(
       state.lastPosition.coords.latitude,
       state.lastPosition.coords.longitude,
       coords.latitude,
       coords.longitude
     ) / 1000;
-    state.trip.distanceKm += dKm;
+    const prevTime = state.lastPosition.timestamp || now;
+    const deltaSec = Math.max(0.5, (now - prevTime) / 1000);
+    // Discard unrealistic teleports (> 60m per second = > 216 km/h)
+    if (dKm <= 0.06 * deltaSec) {
+      state.trip.distanceKm += dKm;
+    }
   }
 
-  if (state.currentSpeedKmh > state.trip.maxSpeedKmh) {
+  if (state.currentSpeedKmh > state.trip.maxSpeedKmh && state.currentSpeedKmh >= MIN_VEHICLE_SPEED_KMH) {
     state.trip.maxSpeedKmh = state.currentSpeedKmh;
   }
 
-  if (state.currentSpeedKmh >= 6) {
+  if (state.currentSpeedKmh >= MIN_VEHICLE_SPEED_KMH) {
     state.trip.speedSum += state.currentSpeedKmh;
     state.trip.speedReadingsCount++;
   }
@@ -995,6 +1090,11 @@ function actuallyStartMonitoring() {
   state.currentSpeedKmh = 0;
   state.smoothedSpeedKmh = 0;
   state.motionState = 'STOPPED';
+  state.isVehicleMoving = false;
+  state.stationaryAnchor = null;
+  state.consecutiveSlowReadings = 0;
+  state.consecutiveDrivingReadings = 0;
+  state.stationarySeconds = 0;
 
   if ('geolocation' in navigator) {
     state.watchId = navigator.geolocation.watchPosition(
@@ -1026,13 +1126,18 @@ function stopMonitoring() {
   state.distanceToCameraMeters = null;
   state.lastPosition = null;
   state.motionState = 'STOPPED';
+  state.isVehicleMoving = false;
+  state.stationaryAnchor = null;
+  state.consecutiveSlowReadings = 0;
+  state.consecutiveDrivingReadings = 0;
+  state.stationarySeconds = 0;
 
   updateUI();
 }
 
 // 10. UI Rendering & Gauge Control
 function updateUI() {
-  const speed = Math.round(state.currentSpeedKmh);
+  const speed = state.currentSpeedKmh < MIN_VEHICLE_SPEED_KMH ? 0 : Math.round(state.currentSpeedKmh);
   const limit = state.effectiveLimitKmh;
 
   // Digital Number
@@ -1044,7 +1149,8 @@ function updateUI() {
   if (speedMphEl) {
     if (state.showDualUnitsMph) {
       speedMphEl.style.display = 'block';
-      speedMphEl.textContent = `≈ ${Math.round(speed * 0.621371)} MPH`;
+      const speedMph = speed > 0 ? Math.round(speed * 0.621371) : 0;
+      speedMphEl.textContent = `≈ ${speedMph} MPH`;
     } else {
       speedMphEl.style.display = 'none';
     }

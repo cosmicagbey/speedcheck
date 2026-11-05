@@ -53,31 +53,22 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.5
-          name: "SpeedCheck v1.0.5 (Google Play Closed Testing AAB)"
+          tag_name: v1.0.6
+          name: "SpeedCheck v1.0.6 (Google Play Closed Testing AAB)"
           body: |
-            ## 🇬🇭 SpeedCheck v1.0.5 - Google Play Release
+            ## 🇬🇭 SpeedCheck v1.0.6 - Google Play Release
 
             This release provides the official **`SpeedCheck.aab`** (Android App Bundle) signed with the release upload keystore for the **Google Play Console Closed Testing** track.
 
             ### 📦 Download Bundle:
-            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing** (Version `1.0.5`, Build `6`).
+            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing** (Version `1.0.6`, Build `7`).
 
-            ### 🚀 What's New in v1.0.5:
-            * **🗺️ Dual-Layer Road-Aware Speed Limits & Camera Detection**:
-              * Added over 50 registered road and highway segments across Accra, Kumasi, Tema, and national corridors (Tema Motorway @ 100 km/h, N1 Highway @ 80 km/h, urban town corridors @ 50 km/h, school zones @ 30 km/h).
-              * Expanded automated camera database to 27 MTTD & crowd-sourced zones across Greater Accra and Ashanti regions.
-              * Road name correlation on dashboard radar card and trip evidence logs.
-            * **📲 In-App Updates**:
-              * Official Google Play In-App Updates integration (`AppUpdateManager`). Users receive, download, and install updates directly within the app without having to manually open the Play Store.
-              * Dedicated "In-App Updates" card in the Settings tab with "Check for Updates" and status display.
-            * **📳 Sound, Vibrate & Mute Quick Toggle**:
-              * Home screen audio icon cycles in order: **Sound ON (🔊) -> Vibrate (📳) -> Mute (🔇) -> Sound ON (🔊)**.
-              * For users who prefer vibration, alerts trigger short haptic bursts each second for 4 seconds in place of spoken voice warnings.
-            * **🗣️ Reduced & Contextual Voice Speech (No Overlaps)**:
-              * Outside camera zones (approaching or exceeding): *"You are about to cross the speed limit, slow down."*
-              * Approaching camera zone (safe speed): *"Speed cameras ahead, be careful."*
-              * In camera zone & approaching/breaking limit: *"Speed cameras ahead, slow down."*
+            ### 🚀 What's New in v1.0.6:
+            * **🏎️ Modern Electric-Cockpit Speedometer**: Dynamic multi-color gradient sweeps, soft ambient radial glow, bold aerodynamic typography, and authentic Ghanaian circular speed limit road sign badge.
+            * **🇺🇸 US Import Vehicle Mode (Dual MPH Readout)**: Optional secondary MPH display under KM/H for American-spec dashboard clusters (60 MPH ≈ 97 KM/H) to avoid confusion.
+            * **⚡ Speedometer Accuracy & Calibration Advisory**: Educational guide explaining the effect of Abossey Okai tyre swaps, wheel sensor vs GPS Doppler ground speed, and Traffitech automated enforcement.
+            * **🛡️ Potential Police Speed Camera Ahead Alerts**: Integrated mobile speedcam patrol locations (28 camera zones) with early cautious warnings.
+            * **🗂️ Clean Settings & Alert History**: Collapsed camera list with dropdown toggle; history strictly records warning buffer approaches and speed limit violations.
             * **🛑 Anti-Jitter Speedometer (Stationary & Walking Filter)**:
               * Strict 8.0 km/h deadband filter prevents false speedometer movement when stationary, parked at red lights, or walking.
               * Exponential moving average (EMA) smoothing eliminates needle jitter.

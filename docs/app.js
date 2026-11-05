@@ -430,6 +430,10 @@ const state = {
   lastExceededAlertTime: 0,
   hasApproachingFiredInZone: false,
 
+  // GPS Calibration: suppresses voice alerts while location engine confirms the area's speed limit
+  calibrationStartTime: 0,
+  calibrationAnnouncementFired: false,
+
   // Trip Stats
   trip: {
     maxSpeedKmh: 0,
@@ -729,6 +733,31 @@ function processSpeedAlerts(speedKmh, limitKmh) {
   if (speedKmh < MIN_VEHICLE_SPEED_KMH) return; // Suppress alerts when stationary, idle, or walking
 
   const now = Date.now();
+
+  // GPS calibration window: suppress all voice alerts while location engine is confirming
+  // the speed limit for the user's current area. After calibration, announce the confirmed limit.
+  if (state.calibrationStartTime > 0) {
+    const elapsed = now - state.calibrationStartTime;
+    if (elapsed < GPS_CALIBRATION_WINDOW_MS) {
+      return; // Still calibrating — silent
+    }
+    // Calibration complete: fire one-time announcement (only in SOUND mode)
+    if (!state.calibrationAnnouncementFired && state.alertMode === 'SOUND') {
+      let announcement;
+      if (state.activeZone && state.activeZone.isMobilePatrol) {
+        announcement = `SpeedCheck ready. Potential police speed camera corridor. Speed limit ${limitKmh} km/h.`;
+      } else if (state.activeZone) {
+        announcement = `SpeedCheck ready. Speed camera zone confirmed. Limit ${limitKmh} km/h.`;
+      } else if (state.activeSpeedLimitZone) {
+        announcement = `SpeedCheck ready. ${state.activeSpeedLimitZone.name}. Speed limit ${limitKmh} km/h.`;
+      } else {
+        announcement = `SpeedCheck ready. Speed limit ${limitKmh} km/h.`;
+      }
+      speakVoice(announcement);
+      state.calibrationAnnouncementFired = true;
+    }
+  }
+
   const cooldownMs = state.alertCooldownSeconds * 1000;
   const approachingThreshold = Math.max(1, limitKmh - state.approachingOffsetKmh);
   const isApproachingOrExceeded = speedKmh >= approachingThreshold;
@@ -811,6 +840,12 @@ document.addEventListener('visibilitychange', () => {
 // Minimum vehicle speed threshold in km/h (matching Android SpeedTrackingService MIN_VEHICLE_SPEED_KMH = 8.0f)
 // Speeds below 8.0 km/h are clamped to 0 km/h to eliminate idle jitter, walking noise, and stationary GPS drift.
 const MIN_VEHICLE_SPEED_KMH = 8.0;
+
+// GPS calibration window (milliseconds). Voice alerts are suppressed for this duration after
+// monitoring starts, giving the location engine time to lock onto the actual speed limit for
+// the user's current area before any alert fires. After calibration completes, a one-time
+// summary announcement confirms the speed limit detected for this location.
+const GPS_CALIBRATION_WINDOW_MS = 12000;
 
 // 8. Jitter-Resistant GPS Speed & Vehicle Motion Evaluation
 function handlePositionUpdate(position) {
@@ -1096,6 +1131,11 @@ function actuallyStartMonitoring() {
   state.consecutiveDrivingReadings = 0;
   state.stationarySeconds = 0;
 
+  // Start GPS calibration: suppress voice alerts until location engine has had time
+  // to confirm the speed limit for this area (GPS_CALIBRATION_WINDOW_MS = 12 seconds).
+  state.calibrationStartTime = Date.now();
+  state.calibrationAnnouncementFired = false;
+
   if ('geolocation' in navigator) {
     state.watchId = navigator.geolocation.watchPosition(
       handlePositionUpdate,
@@ -1108,7 +1148,7 @@ function actuallyStartMonitoring() {
     );
   }
 
-  speakVoice("SpeedCheck active.");
+  // Brief silent start — the calibration-complete announcement will speak the confirmed limit.
   updateUI();
 }
 
@@ -1131,6 +1171,8 @@ function stopMonitoring() {
   state.consecutiveSlowReadings = 0;
   state.consecutiveDrivingReadings = 0;
   state.stationarySeconds = 0;
+  state.calibrationStartTime = 0;
+  state.calibrationAnnouncementFired = false;
 
   updateUI();
 }
@@ -1225,6 +1267,13 @@ function updateUI() {
     badgeEl.className = 'status-badge';
     if (!state.isMonitoring) {
       badgeText.textContent = "Monitoring Stopped";
+    } else if (state.calibrationStartTime > 0 && !state.calibrationAnnouncementFired &&
+               (Date.now() - state.calibrationStartTime) < GPS_CALIBRATION_WINDOW_MS) {
+      // Show calibration progress during the GPS lock-on window
+      const elapsed = Math.floor((Date.now() - state.calibrationStartTime) / 1000);
+      const remaining = Math.max(0, Math.ceil(GPS_CALIBRATION_WINDOW_MS / 1000) - elapsed);
+      badgeEl.classList.add('active');
+      badgeText.textContent = `📡 Confirming speed limit… (${remaining}s)`;
     } else if (alertState === 'exceeded') {
       badgeEl.classList.add('exceeded');
       badgeText.textContent = `Over Limit (${speed} km/h)!`;

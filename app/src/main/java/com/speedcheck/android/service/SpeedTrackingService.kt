@@ -60,6 +60,12 @@ class SpeedTrackingService : Service() {
     private var smoothedSpeedKmh = 0f
     private var currentMonitoringState = MonitoringState.STOPPED
 
+    // GPS calibration: suppress voice alerts for the first GPS_CALIBRATION_WINDOW_MS milliseconds
+    // after monitoring starts, so the speed limit for the user's current location is confirmed
+    // before any alert fires. After calibration, a summary is announced.
+    private var gpsCalibrationStartMs = 0L
+    private var calibrationAnnouncementFired = false
+
     // Speed camera zone announcement & log tracker
     private var lastAnnouncedCameraZoneId: String? = null
     private var lastLogSnapshotTimeMs = 0L
@@ -145,6 +151,11 @@ class SpeedTrackingService : Service() {
         smoothedSpeedKmh = 0f
         lastAnnouncedCameraZoneId = null
 
+        // Start GPS calibration window: suppress alerts for the first 12 seconds so the
+        // detector can confirm the actual speed limit for this location before speaking.
+        gpsCalibrationStartMs = System.currentTimeMillis()
+        calibrationAnnouncementFired = false
+
         val effectiveLimit = resolveEffectiveLimit()
         val notification = notificationHelper.buildForegroundNotification(
             speedKmh = 0f,
@@ -182,6 +193,8 @@ class SpeedTrackingService : Service() {
         _alertStatusFlow.value = SpeedAlertStatus.NORMAL
         _cameraDetectionFlow.value = CameraDetectionResult()
         lastAnnouncedCameraZoneId = null
+        gpsCalibrationStartMs = 0L
+        calibrationAnnouncementFired = false
 
         serviceScope.launch {
             preferencesRepository.updateMonitoringEnabled(false)
@@ -255,23 +268,52 @@ class SpeedTrackingService : Service() {
         // - In VIBRATE mode: short burst each second for 4 seconds in place of sound
         if (currentPreferences.alertMode != com.speedcheck.android.data.AlertMode.MUTE &&
             currentMonitoringState == MonitoringState.ACTIVE_MONITORING) {
-            val hasCameraAhead = detectionResult.hasCameraAhead
-            val cameraZoneId = if (hasCameraAhead) detectionResult.activeZone?.id else null
-            val isMobilePatrol = detectionResult.isMobilePatrol
 
-            ttsManager.processSpeedAlert(
-                currentSpeedKmh = speedKmh,
-                speedLimitKmh = effectiveLimit,
-                approachingOffsetKmh = currentPreferences.approachingOffsetKmh,
-                cooldownSeconds = currentPreferences.alertCooldownSeconds,
-                hasCameraAhead = hasCameraAhead,
-                cameraZoneId = cameraZoneId,
-                isMobilePatrol = isMobilePatrol,
-                alertMode = currentPreferences.alertMode,
-                onVibrateAlert = {
-                    vibrationManager.triggerAlertVibration()
+            val nowMs = System.currentTimeMillis()
+            val elapsedSinceStart = nowMs - gpsCalibrationStartMs
+            val isCalibrating = elapsedSinceStart < GPS_CALIBRATION_WINDOW_MS
+
+            if (isCalibrating) {
+                // GPS calibration window: location detector is still locking onto the
+                // correct speed limit for this area. Suppress alerts until calibrated.
+                Log.d(TAG, "GPS calibration window active (${elapsedSinceStart}ms / ${GPS_CALIBRATION_WINDOW_MS}ms). Alerts suppressed.")
+            } else {
+                // Fire one-time calibration-complete announcement then resume normal alerts
+                if (!calibrationAnnouncementFired &&
+                    currentPreferences.alertMode == com.speedcheck.android.data.AlertMode.SOUND) {
+                    val zoneContext = when {
+                        detectionResult.hasCameraAhead && detectionResult.isMobilePatrol ->
+                            "Potential police speed camera corridor. Limit $effectiveLimit km/h."
+                        detectionResult.hasCameraAhead ->
+                            "Speed camera zone confirmed. Limit $effectiveLimit km/h."
+                        detectionResult.detectedRoadName != null ->
+                            "SpeedCheck ready. Speed limit $effectiveLimit km/h."
+                        else ->
+                            "SpeedCheck ready. Speed limit $effectiveLimit km/h."
+                    }
+                    ttsManager.speak(zoneContext, android.speech.tts.TextToSpeech.QUEUE_FLUSH)
+                    calibrationAnnouncementFired = true
+                    Log.i(TAG, "GPS calibration complete. Announced: $zoneContext")
                 }
-            )
+
+                val hasCameraAhead = detectionResult.hasCameraAhead
+                val cameraZoneId = if (hasCameraAhead) detectionResult.activeZone?.id else null
+                val isMobilePatrol = detectionResult.isMobilePatrol
+
+                ttsManager.processSpeedAlert(
+                    currentSpeedKmh = speedKmh,
+                    speedLimitKmh = effectiveLimit,
+                    approachingOffsetKmh = currentPreferences.approachingOffsetKmh,
+                    cooldownSeconds = currentPreferences.alertCooldownSeconds,
+                    hasCameraAhead = hasCameraAhead,
+                    cameraZoneId = cameraZoneId,
+                    isMobilePatrol = isMobilePatrol,
+                    alertMode = currentPreferences.alertMode,
+                    onVibrateAlert = {
+                        vibrationManager.triggerAlertVibration()
+                    }
+                )
+            }
         }
 
         // Update persistent notification
@@ -493,6 +535,14 @@ class SpeedTrackingService : Service() {
     companion object {
         private const val TAG = "SpeedTrackingService"
         const val MIN_VEHICLE_SPEED_KMH = 8.0f
+
+        /**
+         * GPS calibration window (milliseconds). Voice alerts are suppressed for this duration
+         * after monitoring starts, giving the location detector time to confirm the speed limit
+         * for the user's current area before any alert fires. Calibration completes with a
+         * one-time spoken announcement of the confirmed limit.
+         */
+        const val GPS_CALIBRATION_WINDOW_MS = 12_000L
 
         const val ACTION_START_MONITORING = "com.speedcheck.android.action.START_MONITORING"
         const val ACTION_STOP_MONITORING = "com.speedcheck.android.action.STOP_MONITORING"

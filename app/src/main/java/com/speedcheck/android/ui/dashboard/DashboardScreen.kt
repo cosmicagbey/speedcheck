@@ -211,73 +211,47 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Speed Limit Selection Card (Manual Mode or Auto-Detect Active Indicator)
+            // Speed Limit Card:
+            // - Manual mode: shows active limit only (presets accessible via Settings tab)
+            // - Auto-detect mode: shows detected road / camera zone card
             if (!userPreferences.autoDetectSpeedLimit) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
                             Text(
-                                text = "MANUAL SPEED LIMIT (KM/H)",
-                                fontSize = 12.sp,
+                                text = "MANUAL SPEED LIMIT",
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                                 letterSpacing = 1.sp
                             )
                             Text(
-                                text = "Active: ${userPreferences.speedLimitKmh} km/h",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
+                                text = "${userPreferences.speedLimitKmh} km/h",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Black,
                                 color = SpeedSafeGreen
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        OutlinedButton(
+                            onClick = {
+                                customLimitText = userPreferences.speedLimitKmh.toString()
+                                showCustomLimitDialog = true
+                            },
+                            shape = RoundedCornerShape(10.dp)
                         ) {
-                            presetLimits.forEach { limit ->
-                                FilterChip(
-                                    selected = userPreferences.speedLimitKmh == limit,
-                                    onClick = {
-                                        scope.launch { repository.updateSpeedLimit(limit) }
-                                    },
-                                    label = { Text("$limit") },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = SpeedSafeGreen,
-                                        selectedLabelColor = Color.Black
-                                    )
-                                )
-                            }
-
-                            // Custom Limit Chip
-                            FilterChip(
-                                selected = userPreferences.speedLimitKmh !in presetLimits,
-                                onClick = {
-                                    customLimitText = userPreferences.speedLimitKmh.toString()
-                                    showCustomLimitDialog = true
-                                },
-                                label = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(if (userPreferences.speedLimitKmh !in presetLimits) "${userPreferences.speedLimitKmh}" else "Custom")
-                                    }
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = GhanaGold,
-                                    selectedLabelColor = Color.Black
-                                )
-                            )
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Change Limit", fontSize = 13.sp)
                         }
                     }
                 }

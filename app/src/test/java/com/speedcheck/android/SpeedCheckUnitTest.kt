@@ -370,9 +370,10 @@ class SpeedCheckUnitTest {
         val fixedCameras = totalCameras.filter { !it.isMobilePatrol }
         assertEquals(5, fixedCameras.size)
 
-        val collapsedList = fixedCameras.take(5)
-        assertEquals(5, collapsedList.size)
-        assertEquals("borteyman_junction", collapsedList[0].id)
+        // Collapsed preview shows first 4 of all 28 cameras with expand toggle
+        val previewList = totalCameras.take(4)
+        assertEquals(4, previewList.size)
+        assertEquals("borteyman_junction", previewList[0].id)
     }
 
     @Test

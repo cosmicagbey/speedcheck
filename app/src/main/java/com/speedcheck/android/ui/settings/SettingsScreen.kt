@@ -197,96 +197,114 @@ fun SettingsScreen(
                     }
 
                     if (userPreferences.autoDetectSpeedLimit) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        val fixedCameras = remember { SpeedCameraDetector.GHANA_SPEED_CAMERAS.filter { !it.isMobilePatrol } }
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        val allCameras = remember { SpeedCameraDetector.GHANA_SPEED_CAMERAS }
+
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isCameraListExpanded = !isCameraListExpanded }
+                                .padding(vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Enforced Speed Cameras (${fixedCameras.size}):",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = GhanaGold
-                            )
-                            if (fixedCameras.size > 5) {
-                                Row(
-                                    modifier = Modifier
-                                        .clickable { isCameraListExpanded = !isCameraListExpanded }
-                                        .padding(vertical = 4.dp, horizontal = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = if (isCameraListExpanded) "Show Less" else "Show All",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AccentCyan
-                                    )
-                                    Spacer(modifier = Modifier.width(2.dp))
-                                    Icon(
-                                        imageVector = if (isCameraListExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                        contentDescription = if (isCameraListExpanded) "Show Less" else "Show All",
-                                        tint = AccentCyan,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = null,
+                                    tint = GhanaGold,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Known Speed Camera Locations (${allCameras.size})",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GhanaGold
+                                )
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(start = 4.dp)
+                            ) {
+                                Text(
+                                    text = if (isCameraListExpanded) "Hide" else "Show All",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentCyan
+                                )
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Icon(
+                                    imageVector = if (isCameraListExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = if (isCameraListExpanded) "Collapse camera locations" else "Expand camera locations",
+                                    tint = AccentCyan,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.height(6.dp))
 
                         val displayedCameras = if (isCameraListExpanded) {
-                            fixedCameras
+                            allCameras
                         } else {
-                            fixedCameras.take(5)
+                            allCameras.take(4)
                         }
 
                         displayedCameras.forEach { camera ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 2.dp),
+                                    .padding(vertical = 3.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "• ${camera.name}",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                                    modifier = Modifier.weight(1f)
-                                )
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text(
+                                        text = "• ${camera.name}",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = if (camera.isMobilePatrol) "⚠️ Mobile Patrol Corridor • ${camera.roadName}" else "📷 Fixed Radar • ${camera.roadName}",
+                                        fontSize = 10.sp,
+                                        color = if (camera.isMobilePatrol) GhanaGold.copy(alpha = 0.85f) else AccentCyan.copy(alpha = 0.85f)
+                                    )
+                                }
                                 Text(
                                     text = "${camera.speedLimitKmh} km/h",
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = SpeedSafeGreen
                                 )
                             }
                         }
 
-                        if (!isCameraListExpanded && fixedCameras.size > 5) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { isCameraListExpanded = true }
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "+${fixedCameras.size - 5} more speed camera zones",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                    contentDescription = "Expand list",
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isCameraListExpanded = !isCameraListExpanded }
+                                .padding(vertical = 6.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (isCameraListExpanded) "Show Less ▴" else "+${allCameras.size - 4} more speed camera locations ▾",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentCyan
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = if (isCameraListExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (isCameraListExpanded) "Show Less" else "Expand",
+                                tint = AccentCyan,
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
                     }
                 }

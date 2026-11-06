@@ -1,20 +1,20 @@
 # Privacy Policy for SpeedCheck
 
-**Last Updated:** October 24, 2026  
-**Effective Date:** October 24, 2026  
+**Last Updated:** November 6, 2026
+**Effective Date:** November 6, 2026
 
 Thank you for choosing **SpeedCheck** ("we", "our", or "the App"). SpeedCheck is a road safety and speed awareness application designed to assist drivers in Ghana with real-time speed monitoring and automated speed camera zone alerts.
 
-Your privacy is paramount. This Privacy Policy outlines what information the App accesses, how that information is used, and confirms that **SpeedCheck does not collect, store remotely, share, or sell any personal or location data.**
+This policy describes the Android app and the SpeedCheck web app. SpeedCheck does not upload GPS location data to its own servers, sell user data, or use advertising identifiers. The apps do store some location information locally as described below.
 
 ---
 
 ## 1. Summary of Core Privacy Principles
 
-* 🔒 **100% On-Device Processing**: All GPS location and speed calculations occur strictly on your physical device in real time.
-* 🚫 **No Remote Data Collection**: We do not own, maintain, or transmit data to remote servers or third-party databases.
+* 🔒 **On-Device Location Processing**: GPS location and speed calculations run on your device.
+* 🚫 **No SpeedCheck Location Uploads**: SpeedCheck does not send GPS coordinates or driving history to SpeedCheck servers.
 * 🚫 **No Personal Information Required**: SpeedCheck does not require an account, sign-in, name, phone number, email address, or vehicle details.
-* 🚫 **No Data Sharing or Selling**: None of your data is ever sold, leased, or shared with advertisers, government agencies, or commercial entities.
+* 🚫 **No Data Selling**: SpeedCheck does not sell personal or location data.
 
 ---
 
@@ -28,7 +28,7 @@ To provide its core safety features, SpeedCheck requires specific Android system
   * To calculate your instantaneous vehicle speed in kilometers per hour (km/h) via GPS.
   * To detect whether you are traveling toward designated speed camera enforcement corridors (e.g., N1 Highway, Borteyman Sports Complex, Kawukudi, Kanda Highway).
   * To provide audio alerts before and when exceeding speed limits even when the screen is locked or while using other navigation software.
-* **Storage & Transmission**: Location data is processed ephemerally in RAM while the monitoring service runs. **No location coordinates, route histories, or GPS logs are ever recorded to permanent storage or sent over the Internet.**
+* **Storage & Transmission**: Live coordinates are processed on-device. Warning and violation events, including GPS coordinates, are saved in the Android app's local history database (up to 500 records). The history remains until you clear it or uninstall the app. It is not uploaded to SpeedCheck servers. You may explicitly export it using the system share sheet; information shared with another app is then subject to that app's privacy practices.
 
 ### B. Foreground Service (`FOREGROUND_SERVICE_LOCATION`)
 * **Permission**: `FOREGROUND_SERVICE_LOCATION`
@@ -46,13 +46,17 @@ To provide its core safety features, SpeedCheck requires specific Android system
 
 ## 3. Local Data Storage
 
-SpeedCheck uses Android Jetpack DataStore to save your user preferences locally on your device:
+SpeedCheck uses Android Jetpack DataStore to save your preferences locally and an on-device database for warning and violation history:
 * User-selected speed limit presets (e.g., 30, 50, 80, 100, 120 km/h)
 * Audio preferences (voice gender, speech pitch, speech rate, alert repeat cooldown)
 * Feature toggles (Auto-Detect mode, voice alert on/off)
-* Anonymous session trip statistics (maximum speed, average speed, and session distance)
+* Warning and violation events, including their time, speed, limit, and GPS coordinates (up to 500 records)
 
-All saved preferences remain solely on your device. Clearing the app storage or uninstalling the app permanently deletes this data.
+The Android app excludes its database and preferences from Android cloud backup and device transfer. Clearing app storage or uninstalling the app deletes this local data.
+
+### Web app storage
+
+The web app stores preferences and up to 100 warning/violation history records, including GPS coordinates, in browser `localStorage`. This information remains in that browser profile until you clear the history, clear the site's storage, or remove the browser profile. CSV export is user-initiated and shared files are subject to the receiving app's privacy practices. Browser storage is not uploaded to SpeedCheck servers.
 
 ---
 
@@ -60,16 +64,13 @@ All saved preferences remain solely on your device. Clearing the app storage or 
 
 SpeedCheck does not embed advertising SDKs (such as AdMob), tracking cookies, behavioral analytics (such as Google Analytics or Firebase Analytics), or user profiling tools. 
 
-The App utilizes standard Google Play Services libraries exclusively for on-device GPS location resolution (`FusedLocationProviderClient`) and the Android system Text-to-Speech engine (`TextToSpeech`).
+The Android app utilizes Google Play Services for location resolution (`FusedLocationProviderClient`) and the Android system Text-to-Speech engine. The web app uses browser location, local storage, and speech APIs. These platform services may process data under their own terms; SpeedCheck does not send location data to them as a backend analytics or tracking service.
 
 ---
 
-## 5. Compliance with Privacy Regulations
+## 5. Privacy and Legal Notice
 
-SpeedCheck is developed in accordance with international and domestic privacy standards:
-* **Google Play Developer Program Policies**: Meets strict User Data and Background Location requirements.
-* **Ghana Data Protection Act, 2012 (Act 843)**: Strictly adheres to data minimization and user autonomy principles.
-* **General Data Protection Regulation (GDPR)**: No personal identification data is stored or processed.
+SpeedCheck aims to follow applicable privacy requirements and minimize data use. This section is not a certification or legal determination of compliance.
 
 ---
 
@@ -90,4 +91,4 @@ We may update this Privacy Policy periodically to reflect app updates or regulat
 If you have questions, feedback, or concerns regarding this Privacy Policy or SpeedCheck's privacy practices, please contact us:
 
 * **Repository**: [https://github.com/cosmicagbey/speedcheck](https://github.com/cosmicagbey/speedcheck)
-* **Issues / Inquiries**: [https://github.com/cosmicagbey/speedcheck/issues](https://github.com/cosmicagbey/speedcheck/issues)
+* **Issues / Inquiries**: kentbanks96@gmail.com

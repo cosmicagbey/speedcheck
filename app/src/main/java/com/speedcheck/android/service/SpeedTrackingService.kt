@@ -229,8 +229,16 @@ class SpeedTrackingService : Service() {
     }
 
     private fun handleNewLocation(location: Location) {
-        // Calculate speed in km/h
-        val speedKmh = calculateSpeedKmh(location)
+        // Calculate raw GPS speed in km/h
+        val rawSpeedKmh = calculateSpeedKmh(location)
+
+        // Apply speedometer offset calibration: aligns GPS reading with the vehicle's instrument
+        // cluster. The offset is set by the user in Settings (range: -15 to +15 km/h).
+        val speedKmh = if (rawSpeedKmh > 0f) {
+            (rawSpeedKmh + currentPreferences.speedometerOffsetKmh).coerceAtLeast(0f)
+        } else {
+            0f
+        }
         _currentSpeedFlow.value = speedKmh
 
         // Update Trip Statistics
@@ -539,10 +547,10 @@ class SpeedTrackingService : Service() {
         /**
          * GPS calibration window (milliseconds). Voice alerts are suppressed for this duration
          * after monitoring starts, giving the location detector time to confirm the speed limit
-         * for the user's current area before any alert fires. Calibration completes with a
-         * one-time spoken announcement of the confirmed limit.
+         * for the user's current area before any alert fires. 3 seconds is enough for modern
+         * GPS chips to deliver an accurate first fix and zone classification.
          */
-        const val GPS_CALIBRATION_WINDOW_MS = 12_000L
+        const val GPS_CALIBRATION_WINDOW_MS = 3_000L
 
         const val ACTION_START_MONITORING = "com.speedcheck.android.action.START_MONITORING"
         const val ACTION_STOP_MONITORING = "com.speedcheck.android.action.STOP_MONITORING"

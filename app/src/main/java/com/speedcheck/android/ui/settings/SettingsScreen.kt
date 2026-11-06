@@ -46,6 +46,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -57,6 +58,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -612,6 +614,56 @@ fun SettingsScreen(
                             onCheckedChange = { scope.launch { repository.updateShowDualUnitsMph(it) } }
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Speedometer Offset Calibration Slider
+                    val offset = userPreferences.speedometerOffsetKmh
+                    val offsetDisplay = when {
+                        offset > 0 -> "+$offset km/h"
+                        offset < 0 -> "$offset km/h"
+                        else -> "0 km/h (Exact GPS)"
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Speedometer Offset Calibration",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Text(
+                                text = "Align app speed with your vehicle's instrument cluster. If car speedometer shows 80 while app shows 75, set +5.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
+                        }
+                        Text(
+                            text = offsetDisplay,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (offset != 0) GhanaGold else SpeedSafeGreen,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Slider(
+                        value = offset.toFloat(),
+                        onValueChange = { newVal ->
+                            scope.launch { repository.updateSpeedometerOffset(kotlin.math.round(newVal).toInt()) }
+                        },
+                        valueRange = -15f..15f,
+                        steps = 29,
+                        colors = SliderDefaults.colors(
+                            thumbColor = if (offset != 0) GhanaGold else SpeedSafeGreen,
+                            activeTrackColor = if (offset != 0) GhanaGold else SpeedSafeGreen
+                        )
+                    )
                 }
             }
 

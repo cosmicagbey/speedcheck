@@ -40,6 +40,7 @@ class PreferencesRepository private constructor(private val context: Context) {
         val HIGH_CONTRAST_MODE = booleanPreferencesKey("high_contrast_mode")
         val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
         val SHOW_DUAL_UNITS_MPH = booleanPreferencesKey("show_dual_units_mph")
+        val SPEEDOMETER_OFFSET_KMH = intPreferencesKey("speedometer_offset_kmh")
     }
 
     val userPreferencesFlow: Flow<UserPreferences> = context.dataStore.data
@@ -79,7 +80,8 @@ class PreferencesRepository private constructor(private val context: Context) {
                 autoStartOnBoot = preferences[PreferencesKeys.AUTO_START_ON_BOOT] ?: true,
                 highContrastMode = preferences[PreferencesKeys.HIGH_CONTRAST_MODE] ?: true,
                 isDarkMode = preferences[PreferencesKeys.IS_DARK_MODE] ?: true,
-                showDualUnitsMph = preferences[PreferencesKeys.SHOW_DUAL_UNITS_MPH] ?: false
+                showDualUnitsMph = preferences[PreferencesKeys.SHOW_DUAL_UNITS_MPH] ?: false,
+                speedometerOffsetKmh = preferences[PreferencesKeys.SPEEDOMETER_OFFSET_KMH] ?: 0
             )
         }
 
@@ -182,6 +184,12 @@ class PreferencesRepository private constructor(private val context: Context) {
     suspend fun updateShowDualUnitsMph(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.SHOW_DUAL_UNITS_MPH] = enabled
+        }
+    }
+
+    suspend fun updateSpeedometerOffset(offsetKmh: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SPEEDOMETER_OFFSET_KMH] = offsetKmh.coerceIn(-15, 15)
         }
     }
 

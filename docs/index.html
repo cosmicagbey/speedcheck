@@ -201,6 +201,18 @@
           </label>
         </div>
 
+        <!-- Speedometer Offset Calibration -->
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-title">Speedometer Offset Calibration</div>
+            <div class="setting-desc">Align GPS speed with your vehicle's instrument cluster. If car speedometer shows 80 but SpeedCheck shows 75, set +5. Range: -15 to +15 km/h.</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="range" id="speedoOffsetSlider" min="-15" max="15" value="0" step="1" style="width: 90px; accent-color: var(--safe-green);">
+            <span id="speedoOffsetValue" style="font-weight: bold; font-size: 13px; color: var(--safe-green); min-width: 58px; text-align: right;">0 km/h</span>
+          </div>
+        </div>
+
         <div class="setting-row">
           <div class="setting-info">
             <div class="setting-title">Alert Cooldown</div>

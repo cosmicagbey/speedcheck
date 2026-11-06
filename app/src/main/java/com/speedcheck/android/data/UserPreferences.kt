@@ -82,5 +82,14 @@ data class UserPreferences(
      * Whether to display secondary MPH readout alongside KM/H.
      * Essential for drivers of US-imported vehicles with American-spec instrument clusters.
      */
-    val showDualUnitsMph: Boolean = false
+    val showDualUnitsMph: Boolean = false,
+
+    /**
+     * Speedometer offset calibration in km/h. Corrects the difference between the vehicle's
+     * dashboard speedometer and the GPS speed reading.
+     * - Positive value: GPS reads slower than vehicle (e.g. +5 to bring GPS up to match car)
+     * - Negative value: GPS reads faster than vehicle (e.g. -5 to lower GPS reading)
+     * - Range: -15 to +15 km/h. Default: 0 (no correction).
+     */
+    val speedometerOffsetKmh: Int = 0
 )

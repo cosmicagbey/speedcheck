@@ -389,4 +389,20 @@ class SpeedCheckUnitTest {
         val motorwayMph = (100f * 0.621371f).toInt()
         assertEquals(62, motorwayMph)
     }
+
+    @Test
+    fun speedometerOffsetCalibration_appliesCorrectly() {
+        val prefs = com.speedcheck.android.data.UserPreferences(speedometerOffsetKmh = 5)
+        assertEquals(5, prefs.speedometerOffsetKmh)
+
+        // Raw speed 75 km/h + 5 km/h offset = 80 km/h displayed
+        val rawSpeed = 75f
+        val calibratedSpeed = if (rawSpeed > 0f) (rawSpeed + prefs.speedometerOffsetKmh).coerceAtLeast(0f) else 0f
+        assertEquals(80f, calibratedSpeed, 0.01f)
+
+        // Negative offset (-3 km/h): raw 83 km/h -> 80 km/h
+        val negPrefs = com.speedcheck.android.data.UserPreferences(speedometerOffsetKmh = -3)
+        val negCalibrated = (83f + negPrefs.speedometerOffsetKmh).coerceAtLeast(0f)
+        assertEquals(80f, negCalibrated, 0.01f)
+    }
 }

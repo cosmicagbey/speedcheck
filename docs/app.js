@@ -405,6 +405,7 @@ const state = {
   approachingOffsetKmh: parseInt(localStorage.getItem('sc_buffer_offset') || '5', 10),
   isDarkMode: localStorage.getItem('sc_theme') !== 'light',
   showDualUnitsMph: localStorage.getItem('sc_dual_units_mph') === 'true',
+  speedometerOffsetKmh: parseInt(localStorage.getItem('sc_speedo_offset') || '0', 10),
   evidenceLogs: JSON.parse(localStorage.getItem('sc_speed_evidence') || '[]'),
   isCameraListExpanded: false,
 
@@ -488,26 +489,43 @@ function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
   }
 
   // --- Layer 1: Check Speed Camera Zones (Highest Priority) ---
+  // Direction-aware: only warn if the driver is heading TOWARDS the camera.
+  // Logic:
+  //   • With GPS heading + speed >= 10 km/h: camera must be within 70° forward cone
+  //   • Moving-away suppression: if driver is pointing away from camera, suppress warning
+  //   • Close-proximity override: within 300m warn regardless of angle (safety buffer)
+  //   • Without heading data: only warn within 300m
   let closestCamera = null;
   let minCameraDist = Infinity;
   let isMovingTowards = false;
 
+  const hasHeading = heading != null && !isNaN(heading) && speedKmh >= 10;
+
   for (const zone of GHANA_SPEED_CAMERAS) {
     const dist = calculateDistanceMeters(currentLat, currentLon, zone.latitude, zone.longitude);
-    if (dist <= zone.radiusMeters) {
-      const bearingToCamera = calculateBearing(currentLat, currentLon, zone.latitude, zone.longitude);
-      let movingTowards = true;
+    if (dist > zone.radiusMeters) continue;
 
-      if (heading != null && !isNaN(heading) && speedKmh >= 10) {
-        const angleDiff = Math.abs((heading - bearingToCamera + 540) % 360 - 180);
-        movingTowards = angleDiff <= 85 || dist <= 350;
-      }
+    const bearingToCamera = calculateBearing(currentLat, currentLon, zone.latitude, zone.longitude);
+    let approaching = false;
 
-      if (movingTowards && dist < minCameraDist) {
-        minCameraDist = dist;
-        closestCamera = zone;
-        isMovingTowards = true;
+    if (hasHeading) {
+      // Angle between driver's heading and direction to camera (0° = directly ahead, 180° = directly behind)
+      const angleDiff = Math.abs((heading - bearingToCamera + 540) % 360 - 180);
+
+      if (angleDiff <= 70) {
+        approaching = true; // Approaching in forward cone
+      } else if (dist <= 300) {
+        approaching = true; // Very close proximity safety override
       }
+      // angleDiff > 70 and dist > 300: driver is moving away or perpendicular -> suppress warning
+    } else {
+      approaching = dist <= 300;
+    }
+
+    if (approaching && dist < minCameraDist) {
+      minCameraDist = dist;
+      closestCamera = zone;
+      isMovingTowards = true;
     }
   }
 
@@ -845,7 +863,7 @@ const MIN_VEHICLE_SPEED_KMH = 8.0;
 // monitoring starts, giving the location engine time to lock onto the actual speed limit for
 // the user's current area before any alert fires. After calibration completes, a one-time
 // summary announcement confirms the speed limit detected for this location.
-const GPS_CALIBRATION_WINDOW_MS = 12000;
+const GPS_CALIBRATION_WINDOW_MS = 3000;
 
 // 8. Jitter-Resistant GPS Speed & Vehicle Motion Evaluation
 function handlePositionUpdate(position) {
@@ -1043,7 +1061,11 @@ function handlePositionUpdate(position) {
   evaluateCameraZones(coords.latitude, coords.longitude, state.currentSpeedKmh, coords.heading);
 
   // Voice Alert Evaluation
-  processSpeedAlerts(state.currentSpeedKmh, state.effectiveLimitKmh);
+  // Pass offset-adjusted speed for alert evaluation so warnings match what vehicle speedometer shows
+  const alertSpeedKmh = state.currentSpeedKmh > 0
+    ? Math.max(0, state.currentSpeedKmh + state.speedometerOffsetKmh)
+    : 0;
+  processSpeedAlerts(alertSpeedKmh, state.effectiveLimitKmh);
 
   state.lastPosition = position;
   updateUI();
@@ -1179,7 +1201,11 @@ function stopMonitoring() {
 
 // 10. UI Rendering & Gauge Control
 function updateUI() {
-  const speed = state.currentSpeedKmh < MIN_VEHICLE_SPEED_KMH ? 0 : Math.round(state.currentSpeedKmh);
+  // Apply speedometer offset calibration: adjust GPS reading to match vehicle's instrument cluster.
+  // Positive offset = GPS reads faster than vehicle (car speedometer shows higher, e.g. +5 to bring GPS up).
+  // Negative offset = GPS reads slower than vehicle.
+  const rawDisplaySpeed = state.currentSpeedKmh < MIN_VEHICLE_SPEED_KMH ? 0 : state.currentSpeedKmh;
+  const speed = rawDisplaySpeed > 0 ? Math.max(0, Math.round(rawDisplaySpeed + state.speedometerOffsetKmh)) : 0;
   const limit = state.effectiveLimitKmh;
 
   // Digital Number
@@ -1575,6 +1601,26 @@ document.addEventListener('DOMContentLoaded', () => {
     bufferSlider.addEventListener('input', (e) => {
       state.approachingOffsetKmh = parseInt(e.target.value, 10);
       localStorage.setItem('sc_buffer_offset', state.approachingOffsetKmh);
+      updateUI();
+    });
+  }
+
+  // Speedometer offset calibration slider
+  const speedoOffsetSlider = document.getElementById('speedoOffsetSlider');
+  const speedoOffsetValue = document.getElementById('speedoOffsetValue');
+  if (speedoOffsetSlider) {
+    speedoOffsetSlider.value = state.speedometerOffsetKmh;
+    if (speedoOffsetValue) {
+      const v = state.speedometerOffsetKmh;
+      speedoOffsetValue.textContent = v > 0 ? `+${v} km/h` : `${v} km/h`;
+    }
+    speedoOffsetSlider.addEventListener('input', () => {
+      const val = parseInt(speedoOffsetSlider.value, 10);
+      state.speedometerOffsetKmh = val;
+      localStorage.setItem('sc_speedo_offset', val);
+      if (speedoOffsetValue) {
+        speedoOffsetValue.textContent = val > 0 ? `+${val} km/h` : `${val} km/h`;
+      }
       updateUI();
     });
   }

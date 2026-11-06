@@ -1078,8 +1078,16 @@ object SpeedCameraDetector {
     }
 
     /**
-     * Searches camera zones for the closest one the driver is approaching.
-     * Returns Triple(zone, distance, isMovingTowards) or null.
+     * Searches camera zones for the closest one the driver is heading towards.
+     *
+     * Direction logic:
+     * - With GPS bearing + speed ≥ 10 km/h: requires camera to be within a 70° forward cone.
+     *   Moving-away suppression: angle > 110° with distance > 300m → skip (no warning).
+     * - Close-proximity override: within 300m always warns regardless of direction (safety buffer
+     *   for roundabouts, U-turns, or congested intersections).
+     * - No bearing data (stationary, GPS not locked): only warns within 300m.
+     *
+     * Returns Triple(zone, distance, isMovingTowards) or null if no approaching zone found.
      */
     private fun findClosestCameraZone(
         currentLocation: Location,
@@ -1087,6 +1095,7 @@ object SpeedCameraDetector {
     ): Triple<SpeedCameraZone, Float, Boolean>? {
         var closestZone: SpeedCameraZone? = null
         var minDistance = Float.MAX_VALUE
+        val hasHeading = currentLocation.hasBearing() && currentSpeedKmh >= 10f
 
         for (zone in GHANA_SPEED_CAMERAS) {
             probeLocation.latitude = zone.latitude
@@ -1095,16 +1104,23 @@ object SpeedCameraDetector {
             val distance = currentLocation.distanceTo(probeLocation)
             if (distance > zone.radiusMeters) continue
 
-            // Check heading towards camera
-            val movingTowards = if (currentLocation.hasBearing() && currentSpeedKmh >= 10f) {
+            val approaching: Boolean = if (hasHeading) {
                 val bearingToCamera = currentLocation.bearingTo(probeLocation)
+                // Angle between driver's heading and direction to camera
+                // 0° = directly ahead, 180° = directly behind
                 val angleDiff = abs((currentLocation.bearing - bearingToCamera + 540) % 360 - 180)
-                angleDiff <= 85 || distance <= 350f
+
+                when {
+                    angleDiff <= 70f -> true          // Camera is in the forward 70° cone — approaching
+                    distance <= 300f -> true           // Very close: warn regardless of angle (safety override)
+                    else -> false                      // Moving away or perpendicular — suppress warning
+                }
             } else {
-                true // Stationary within zone is still covered
+                // No heading data: only warn within close proximity to avoid false alarms
+                distance <= 300f
             }
 
-            if (movingTowards && distance < minDistance) {
+            if (approaching && distance < minDistance) {
                 minDistance = distance
                 closestZone = zone
             }

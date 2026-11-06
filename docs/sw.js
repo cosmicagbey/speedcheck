@@ -1,4 +1,4 @@
-const CACHE_NAME = 'speedcheck-v1.0.6-direction-offset';
+const CACHE_NAME = 'speedcheck-v1.0.7';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

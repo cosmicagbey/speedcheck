@@ -928,7 +928,7 @@ private fun InAppUpdateCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "SpeedCheck v1.0.6",
+                            text = "SpeedCheck v1.0.7",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )

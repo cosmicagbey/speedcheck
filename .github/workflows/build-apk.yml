@@ -53,20 +53,23 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.6
-          name: "SpeedCheck v1.0.6 (Google Play Closed Testing AAB)"
+          tag_name: v1.0.7
+          name: "SpeedCheck v1.0.7 (Google Play Closed Testing AAB)"
           body: |
-            ## 🇬🇭 SpeedCheck v1.0.6 - Google Play Release
+            ## 🇬🇭 SpeedCheck v1.0.7 - Google Play Release
 
             This release provides the official **`SpeedCheck.aab`** (Android App Bundle) signed with the release upload keystore for the **Google Play Console Closed Testing** track.
 
             ### 📦 Download Bundle:
-            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing** (Version `1.0.6`, Build `7`).
+            * **`SpeedCheck.aab`**: Upload this file directly to **Google Play Console** under **Testing > Closed testing** (Version `1.0.7`, Build `8`).
 
-            ### 🚀 What's New in v1.0.6:
+            ### 🚀 What's New in v1.0.7:
+            * **🎯 Speedometer Offset Calibration**: Users can calibrate app speed with their vehicle instrument cluster (-15 to +15 km/h offset in Settings) to eliminate discrepancies.
+            * **🧭 Direction-Aware Camera Warnings**: Real-time forward-cone (70°) trajectory detection suppresses false warnings when moving away from speed cameras.
+            * **⚡ Fast 3s GPS Calibration**: Instant lock-on and confirmed speed limit announcement on startup without premature alerts.
+            * **📍 All 28 Known Speed Camera Locations**: Expandable camera enforcement list in Settings with dropdown view.
             * **🏎️ Modern Electric-Cockpit Speedometer**: Dynamic multi-color gradient sweeps, soft ambient radial glow, bold aerodynamic typography, and authentic Ghanaian circular speed limit road sign badge.
-            * **🇺🇸 US Import Vehicle Mode (Dual MPH Readout)**: Optional secondary MPH display under KM/H for American-spec dashboard clusters (60 MPH ≈ 97 KM/H) to avoid confusion.
-            * **⚡ Speedometer Accuracy & Calibration Advisory**: Educational guide explaining the effect of Abossey Okai tyre swaps, wheel sensor vs GPS Doppler ground speed, and Traffitech automated enforcement.
+            * **🇺🇸 US Import Vehicle Mode (Dual MPH Readout)**: Optional secondary MPH display under KM/H for American-spec dashboard clusters (60 MPH ≈ 97 KM/H).
             * **🛡️ Potential Police Speed Camera Ahead Alerts**: Integrated mobile speedcam patrol locations (28 camera zones) with early cautious warnings.
             * **🗂️ Clean Settings & Alert History**: Collapsed camera list with dropdown toggle; history strictly records warning buffer approaches and speed limit violations.
             * **🛑 Anti-Jitter Speedometer (Stationary & Walking Filter)**:

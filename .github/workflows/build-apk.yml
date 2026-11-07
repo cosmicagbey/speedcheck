@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing version tag to build and publish (for example, v1.0.8)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -46,7 +51,7 @@ jobs:
 
   release:
     name: Build and publish signed release AAB
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
     needs: test
     runs-on: ubuntu-latest
     permissions:
@@ -54,6 +59,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -80,6 +87,11 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Release App Bundle (AAB only)
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/keystore/upload-keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew bundleRelease --stacktrace
 
       - name: Prepare AAB for Release
@@ -95,10 +107,10 @@ jobs:
       - name: Create GitHub Release from version tag
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: "SpeedCheck ${{ github.ref_name }}"
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' && inputs.release_tag || github.ref_name }}
+          name: "SpeedCheck ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' && inputs.release_tag || github.ref_name }}"
           body: |
-            ## SpeedCheck ${{ github.ref_name }}
+            ## SpeedCheck ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' && inputs.release_tag || github.ref_name }}
 
             This release provides the signed **`SpeedCheck.aab`** Android App Bundle for Google Play.
 

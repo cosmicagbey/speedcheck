@@ -92,7 +92,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew bundleRelease --stacktrace
+        run: ./gradlew bundleRelease --no-configuration-cache --stacktrace
 
       - name: Prepare AAB for Release
         run: cp app/build/outputs/bundle/release/app-release.aab SpeedCheck.aab

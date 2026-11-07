@@ -147,8 +147,7 @@ fun SpeedometerAccuracyGuideDialog(
                     accentColor = GhanaGold
                 ) {
                     Text(
-                        text = "SpeedCheck uses satellite Doppler shift and multi-constellation GPS positioning to compute true velocity over the ground.\n\n" +
-                                "Because automated police cameras (including MTTD radars and Traffitech systems) measure your true ground speed, SpeedCheck matches what the cameras actually record, not what your car's wheel sensors estimate.",
+                        text = "SpeedCheck estimates your speed from GPS location data. GPS accuracy varies with device, weather, buildings, and satellite reception; the app's speed may differ from your vehicle's speedometer or an enforcement device. Calibration adjusts the speed used by the app's alerts as well as its display. Always follow posted speed limits.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                         lineHeight = 17.sp
@@ -164,10 +163,10 @@ fun SpeedometerAccuracyGuideDialog(
                     accentColor = SpeedExceededRed
                 ) {
                     Text(
-                        text = "Automated traffic systems capture speed infractions electronically with zero human discretion. Because signs in Ghana are often missing or hidden:\n\n" +
+                        text = "Camera and road-zone locations in SpeedCheck are approximate and may be incomplete or out of date. GPS-based speed and location records are for personal reference, not official or legal proof. Always follow posted signs and applicable regulations:\n\n" +
                                 "• Keep SpeedCheck active in the background for continuous voice alerts.\n" +
-                                "• Maintain a 5 km/h warning buffer so you slow down before reaching the strict trigger point.\n" +
-                                "• Review your Evidence Log in the History tab if you ever need to verify your driving speeds.",
+                                "• Set an early warning buffer to give yourself time to slow down.\n" +
+                                "• Review the local History tab for your own reference.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                         lineHeight = 17.sp

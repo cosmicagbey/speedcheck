@@ -8,7 +8,7 @@ import com.speedcheck.android.model.SpeedAlertStatus
 import com.speedcheck.android.model.SpeedLogEntry
 
 /**
- * SQLite database helper managing permanent storage of vehicle speed evidence logs.
+ * SQLite database helper managing bounded local vehicle speed history.
  */
 class SpeedHistoryDbHelper(context: Context) :
     SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
@@ -34,8 +34,7 @@ class SpeedHistoryDbHelper(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_NAME")
-        onCreate(db)
+        // Preserve existing driving history; add explicit migrations when the schema changes.
     }
 
     fun insertLog(entry: SpeedLogEntry): Long {
@@ -54,12 +53,17 @@ class SpeedHistoryDbHelper(context: Context) :
             put(COLUMN_COMPLIANCE, entry.complianceStatus)
             put(COLUMN_NOTE, entry.note)
         }
-        return db.insert(TABLE_NAME, null, values)
+        val insertedRowId = db.insert(TABLE_NAME, null, values)
+        if (insertedRowId != -1L) {
+            pruneLogs(db)
+        }
+        return insertedRowId
     }
 
     fun getAllLogs(): List<SpeedLogEntry> {
         val list = mutableListOf<SpeedLogEntry>()
-        val db = readableDatabase
+        val db = writableDatabase
+        pruneLogs(db)
         val cursor = db.query(
             TABLE_NAME,
             null,
@@ -68,7 +72,7 @@ class SpeedHistoryDbHelper(context: Context) :
             null,
             null,
             "$COLUMN_TIMESTAMP DESC",
-            "500" // retain last 500 records
+            MAX_LOG_COUNT.toString()
         )
 
         cursor.use { c ->
@@ -119,9 +123,24 @@ class SpeedHistoryDbHelper(context: Context) :
         return db.delete(TABLE_NAME, null, null)
     }
 
+    private fun pruneLogs(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            DELETE FROM $TABLE_NAME
+            WHERE $COLUMN_ID NOT IN (
+                SELECT $COLUMN_ID
+                FROM $TABLE_NAME
+                ORDER BY $COLUMN_TIMESTAMP DESC
+                LIMIT $MAX_LOG_COUNT
+            )
+            """.trimIndent()
+        )
+    }
+
     companion object {
         private const val DATABASE_NAME = "speedcheck_history.db"
         private const val DATABASE_VERSION = 1
+        private const val MAX_LOG_COUNT = 500
 
         const val TABLE_NAME = "speed_history_logs"
         const val COLUMN_ID = "id"

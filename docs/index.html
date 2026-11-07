@@ -33,7 +33,7 @@
       </div>
       <div class="header-actions">
         <button id="muteBtn" class="icon-btn" title="Toggle Voice Alerts">🔊</button>
-        <button id="historyBtn" class="icon-btn" title="Speed & Evidence Logs">📋</button>
+        <button id="historyBtn" class="icon-btn" title="Speed & Location History">📋</button>
         <button id="themeBtn" class="icon-btn" title="Toggle Dark/Light Mode">☀️</button>
         <button id="settingsBtn" class="icon-btn" title="Settings">⚙️</button>
       </div>
@@ -167,6 +167,17 @@
           </div>
         </div>
 
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-title">Speed Camera Voice Prompts</div>
+            <div class="setting-desc">Hear camera warnings within 75 m. Speed-limit alerts follow your alert mode.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="cameraVoiceAlertsToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+
         <!-- Warning Buffer Offset -->
         <div class="setting-row">
           <div class="setting-info">
@@ -241,16 +252,23 @@
         <button id="openPrivacyBtn" class="modal-btn" style="margin-top: 8px;">
           🔒 Privacy Policy & Data
         </button>
+
+        <p class="setting-desc" style="margin-top: 14px; line-height: 1.5;">
+          Mapped road limits are incomplete; always follow posted signs.
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" style="color: var(--safe-green);">
+            © OpenStreetMap contributors · ODbL 1.0
+          </a>
+        </p>
       </div>
     </div>
   </div>
 
-  <!-- Speed & Location Evidence Modal -->
+  <!-- Speed & Location History Modal -->
   <div id="historyModal" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
         <div>
-          <h2>📋 Speed & Location Evidence</h2>
+          <h2>📋 Speed & Location History</h2>
           <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
             <span id="historyLogCount">0</span> warning & violation logs
           </div>
@@ -260,7 +278,7 @@
       <div class="modal-body">
         <div style="display: flex; gap: 8px; margin-bottom: 12px;">
           <button id="exportEvidenceBtn" class="modal-btn primary" style="margin-top: 0; padding: 10px 14px; font-size: 12px; flex: 1;">
-            📥 Export Evidence (CSV)
+            📥 Export History (CSV)
           </button>
           <button id="clearHistoryBtn" class="modal-btn" style="margin-top: 0; padding: 10px 14px; font-size: 12px; color: var(--exceeded-red); border-color: rgba(255, 61, 0, 0.4); flex: 1;">
             🗑️ Clear Logs
@@ -269,7 +287,7 @@
 
         <div id="historyLogsContainer" class="history-logs-container">
           <div style="text-align: center; color: var(--text-muted); padding: 24px 0; font-size: 13px;">
-            No speed warnings or violations recorded yet.<br>Driving evidence will appear here.
+            No speed warnings or violations recorded yet.<br>Driving history will appear here.
           </div>
         </div>
       </div>
@@ -352,10 +370,10 @@
         <button class="close-btn" data-close-modal="privacyModal">✕</button>
       </div>
       <div class="modal-body">
-        <p><strong>SpeedCheck is 100% private and ad-free.</strong></p>
+        <p><strong>SpeedCheck is ad-free and does not upload GPS location data.</strong></p>
         <br>
         <h3>1. Location Data</h3>
-        <p>Your GPS coordinates are used exclusively inside your browser to calculate current speed and distance to approaching speed camera zones. <strong>No location data is ever transmitted, logged, or uploaded to any server.</strong></p>
+        <p>Your GPS coordinates are processed in your browser and are not uploaded to SpeedCheck servers. Warning and violation history, including GPS coordinates, is stored in this browser's local storage (up to 100 records) until you clear it. CSV export is user-initiated.</p>
         
         <h3>2. Zero Tracking & No Ads</h3>
         <p>SpeedCheck does not use cookies, advertising identifiers, or analytics trackers. Everything runs client-side on your device.</p>
@@ -405,6 +423,7 @@
   </div>
 
   <!-- App Script -->
+  <script src="speed-estimator.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

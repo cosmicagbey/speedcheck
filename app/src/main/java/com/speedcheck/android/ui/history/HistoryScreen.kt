@@ -112,7 +112,7 @@ fun HistoryScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Speed & Location Evidence",
+                            text = "Speed & Location History",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
                         )
@@ -137,7 +137,7 @@ fun HistoryScreen(
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Export Evidence (CSV)") },
+                            text = { Text("Export History (CSV)") },
                             leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
                             onClick = {
                                 showMenu = false
@@ -187,7 +187,7 @@ fun HistoryScreen(
             onDismissRequest = { showClearConfirmDialog = false },
             title = { Text("Clear All Driving Logs?") },
             text = {
-                Text("This will permanently erase all captured speed and location evidence from your phone. This action cannot be undone.")
+                Text("This will permanently erase all saved speed and location history from your phone. This action cannot be undone.")
             },
             confirmButton = {
                 Button(
@@ -329,7 +329,7 @@ private fun HistoryLogCard(entry: SpeedLogEntry) {
                 )
             }
 
-            // Expandable Detailed Evidence Section
+            // Expandable detailed history section
             AnimatedVisibility(
                 visible = isExpanded,
                 enter = fadeIn() + expandVertically(),
@@ -354,43 +354,43 @@ private fun HistoryLogCard(entry: SpeedLogEntry) {
                     )
 
                     EvidenceRow(
-                        label = "Legal Status",
+                        label = "Speed Status",
                         value = entry.complianceStatus
                     )
 
                     EvidenceRow(
-                        label = "Official Note",
+                        label = "Alert Details",
                         value = entry.note.ifEmpty { "None" }
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Share single evidence entry button
+                    // Share a single history entry
                     OutlinedButton(
                         onClick = {
                             val shareText = """
-                                🛡️ SpeedCheck Driving Evidence Record
+                                SpeedCheck Driving History
                                 Time: $dateString
                                 Location: ${entry.placeName}
                                 GPS: ${String.format(Locale.US, "%.5f, %.5f", entry.latitude, entry.longitude)}
                                 Driving Speed: ${entry.speedKmh.toInt()} km/h
                                 Speed Limit: ${entry.speedLimitKmh} km/h
-                                Compliance: ${entry.complianceStatus}
+                                Recorded status: ${entry.complianceStatus}
                                 Mode: ${if (entry.isAutoDetect) "Auto-Detect Camera Zone" else "Manual Limit"}
                             """.trimIndent()
 
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_SUBJECT, "SpeedCheck Legal Evidence")
+                                putExtra(Intent.EXTRA_SUBJECT, "SpeedCheck Driving History")
                                 putExtra(Intent.EXTRA_TEXT, shareText)
                             }
-                            context.startActivity(Intent.createChooser(shareIntent, "Share Evidence Record"))
+                            context.startActivity(Intent.createChooser(shareIntent, "Share History Record"))
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Share This Evidence Record", fontSize = 12.sp)
+                        Text("Share This History Record", fontSize = 12.sp)
                     }
                 }
             }
@@ -455,7 +455,7 @@ private fun EmptyHistoryView(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "SpeedCheck automatically captures verifiable evidence records whenever you hit your warning buffer or exceed a speed limit.",
+            text = "SpeedCheck keeps a local history of warning-buffer alerts and speed-limit events. GPS readings are estimates, not official or legal proof of speed.",
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             lineHeight = 18.sp,

@@ -15,8 +15,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Repository for managing driving speed logs, providing observable state,
- * and generating verifiable evidence exports.
+ * Repository for managing local driving history and generating user-requested exports.
  */
 class SpeedLogRepository private constructor(private val context: Context) {
 
@@ -49,7 +48,7 @@ class SpeedLogRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Generates a CSV format evidence report and opens Android Share Sheet.
+     * Generates a CSV history export and opens the Android Share Sheet.
      */
     fun exportLogs(context: Context, customLogs: List<SpeedLogEntry>? = null) {
         val logs = customLogs ?: _logsFlow.value
@@ -58,23 +57,36 @@ class SpeedLogRepository private constructor(private val context: Context) {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         val csvBuilder = StringBuilder()
 
-        // CSV Header
-        csvBuilder.append("Timestamp,Date & Time,Location / Area,Latitude,Longitude,Current Speed (km/h),Max Speed (km/h),Speed Limit (km/h),Compliance Status,Alert Status,Detection Mode\n")
+        csvBuilder.append(
+            "Timestamp,Date & Time,Location / Area,Latitude,Longitude,Current Speed (km/h),Max Speed (km/h),Speed Limit (km/h),Speed Status,Alert Status,Detection Mode\n"
+        )
 
         for (log in logs) {
             val dateStr = dateFormat.format(Date(log.timestamp))
-            val cleanPlace = log.placeName.replace(",", ";").replace("\"", "")
-            csvBuilder.append("${log.timestamp},\"$dateStr\",\"$cleanPlace\",${log.latitude},${log.longitude},${log.speedKmh},${log.maxSpeedKmh},${log.speedLimitKmh},\"${log.complianceStatus}\",\"${log.alertStatus.name}\",\"${if (log.isAutoDetect) "Auto-Detect" else "Manual"}\"\n")
+            val row = listOf(
+                log.timestamp.toString(),
+                dateStr,
+                log.placeName,
+                log.latitude.toString(),
+                log.longitude.toString(),
+                log.speedKmh.toString(),
+                log.maxSpeedKmh.toString(),
+                log.speedLimitKmh.toString(),
+                log.complianceStatus,
+                log.alertStatus.name,
+                if (log.isAutoDetect) "Auto-Detect" else "Manual"
+            ).joinToString(",") { value -> "\"${value.replace("\"", "\"\"")}\"" }
+            csvBuilder.append(row).append('\n')
         }
 
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/csv"
-            putExtra(Intent.EXTRA_SUBJECT, "SpeedCheck Driving Evidence Log - ${SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())}")
+            putExtra(Intent.EXTRA_SUBJECT, "SpeedCheck Driving History - ${SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())}")
             putExtra(Intent.EXTRA_TEXT, csvBuilder.toString())
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
 
-        val chooser = Intent.createChooser(shareIntent, "Export Driving Evidence Log").apply {
+        val chooser = Intent.createChooser(shareIntent, "Export Driving History").apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
         context.startActivity(chooser)

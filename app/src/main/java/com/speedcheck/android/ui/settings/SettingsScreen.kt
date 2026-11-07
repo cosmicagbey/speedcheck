@@ -46,10 +46,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -76,8 +76,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.speedcheck.android.data.AlertMode
@@ -107,6 +109,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
     val repository = remember { PreferencesRepository.getInstance(context) }
     val ttsManager = remember { TextToSpeechManager(context) }
@@ -154,158 +157,126 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            // SECTION 1: Auto-Detect Speed Limits & Camera Zones
-            SettingsSectionHeader(title = "LOCATION & CAMERA AUTO-DETECT", icon = Icons.Default.Radar)
+            // SECTION 1: Location & known camera zones
+            SettingsSectionHeader(title = "LOCATION", icon = Icons.Default.Radar)
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (userPreferences.autoDetectSpeedLimit)
-                        AccentCyan.copy(alpha = 0.12f)
-                    else
-                        MaterialTheme.colorScheme.surface
-                ),
-                border = if (userPreferences.autoDetectSpeedLimit)
-                    androidx.compose.foundation.BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
-                else null
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Known Speed Camera Locations (${SpeedCameraDetector.GHANA_SPEED_CAMERAS.size})",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GhanaGold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Approximate locations. Always follow posted signs.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Mapped road limits are incomplete; always follow posted signs.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = "© OpenStreetMap contributors · ODbL 1.0",
+                        fontSize = 11.sp,
+                        color = AccentCyan,
+                        modifier = Modifier.clickable {
+                            uriHandler.openUri("https://www.openstreetmap.org/copyright")
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Auto-Detect Speed Limit",
+                                text = "Speed Camera Voice Prompts",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
+                                fontSize = 14.sp
                             )
                             Text(
-                                text = "Picks your GPS location & travel heading to find the speed limit for your area and approaching cameras.",
+                                text = "Hear camera warnings within 75 m. Speed-limit alerts follow your alert mode.",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                             )
                         }
                         Switch(
-                            checked = userPreferences.autoDetectSpeedLimit,
-                            onCheckedChange = { scope.launch { repository.updateAutoDetectSpeedLimit(it) } },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.Black,
-                                checkedTrackColor = AccentCyan
-                            )
+                            checked = userPreferences.cameraVoiceAlertsEnabled,
+                            onCheckedChange = {
+                                scope.launch { repository.updateCameraVoiceAlertsEnabled(it) }
+                            }
                         )
                     }
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    if (userPreferences.autoDetectSpeedLimit) {
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                        Spacer(modifier = Modifier.height(10.dp))
+                    val allCameras = remember { SpeedCameraDetector.GHANA_SPEED_CAMERAS }
 
-                        val allCameras = remember { SpeedCameraDetector.GHANA_SPEED_CAMERAS }
+                    val displayedCameras = if (isCameraListExpanded) {
+                        allCameras
+                    } else {
+                        allCameras.take(4)
+                    }
 
+                    displayedCameras.forEach { camera ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { isCameraListExpanded = !isCameraListExpanded }
-                                .padding(vertical = 4.dp),
+                                .padding(vertical = 3.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.CameraAlt,
-                                    contentDescription = null,
-                                    tint = GhanaGold,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                                 Text(
-                                    text = "Known Speed Camera Locations (${allCameras.size})",
+                                    text = "• ${camera.name}",
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = GhanaGold
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
+                                    fontWeight = FontWeight.Medium
                                 )
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(start = 4.dp)
-                            ) {
                                 Text(
-                                    text = if (isCameraListExpanded) "Hide" else "Show All",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = AccentCyan
-                                )
-                                Spacer(modifier = Modifier.width(2.dp))
-                                Icon(
-                                    imageVector = if (isCameraListExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                    contentDescription = if (isCameraListExpanded) "Collapse camera locations" else "Expand camera locations",
-                                    tint = AccentCyan,
-                                    modifier = Modifier.size(18.dp)
+                                    text = if (camera.isMobilePatrol) "⚠️ Mobile Patrol Corridor • ${camera.roadName}" else "📷 Fixed Radar • ${camera.roadName}",
+                                    fontSize = 10.sp,
+                                    color = if (camera.isMobilePatrol) GhanaGold.copy(alpha = 0.85f) else AccentCyan.copy(alpha = 0.85f)
                                 )
                             }
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        val displayedCameras = if (isCameraListExpanded) {
-                            allCameras
-                        } else {
-                            allCameras.take(4)
-                        }
-
-                        displayedCameras.forEach { camera ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 3.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                    Text(
-                                        text = "• ${camera.name}",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Text(
-                                        text = if (camera.isMobilePatrol) "⚠️ Mobile Patrol Corridor • ${camera.roadName}" else "📷 Fixed Radar • ${camera.roadName}",
-                                        fontSize = 10.sp,
-                                        color = if (camera.isMobilePatrol) GhanaGold.copy(alpha = 0.85f) else AccentCyan.copy(alpha = 0.85f)
-                                    )
-                                }
-                                Text(
-                                    text = "${camera.speedLimitKmh} km/h",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = SpeedSafeGreen
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { isCameraListExpanded = !isCameraListExpanded }
-                                .padding(vertical = 6.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
                             Text(
-                                text = if (isCameraListExpanded) "Show Less ▴" else "+${allCameras.size - 4} more speed camera locations ▾",
-                                fontSize = 11.sp,
+                                text = "${camera.speedLimitKmh} km/h",
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = AccentCyan
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(
-                                imageVector = if (isCameraListExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                contentDescription = if (isCameraListExpanded) "Show Less" else "Expand",
-                                tint = AccentCyan,
-                                modifier = Modifier.size(16.dp)
+                                color = SpeedSafeGreen
                             )
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isCameraListExpanded = !isCameraListExpanded }
+                            .padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isCameraListExpanded) "Show Less ▴" else "+${allCameras.size - 4} more speed camera locations ▾",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentCyan
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = if (isCameraListExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (isCameraListExpanded) "Show Less" else "Expand",
+                            tint = AccentCyan,
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
             }
@@ -327,7 +298,7 @@ fun SettingsScreen(
                     )
                     Text(
                         text = if (userPreferences.autoDetectSpeedLimit)
-                            "Used when outside camera zones or if Auto-Detect is turned off."
+                            "Used when road or camera data is unavailable."
                         else
                             "Currently used for all speed alerts.",
                         fontSize = 12.sp,
@@ -634,7 +605,7 @@ fun SettingsScreen(
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
-                    Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                     Spacer(modifier = Modifier.height(14.dp))
 
                     // Speedometer Offset Calibration Slider
@@ -644,31 +615,31 @@ fun SettingsScreen(
                         offset < 0 -> "$offset km/h"
                         else -> "0 km/h (Exact GPS)"
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Speedometer Offset Calibration",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                            Text(
-                                text = "Align app speed with your vehicle's instrument cluster. If car speedometer shows 80 while app shows 75, set +5.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                        }
-                        Text(
-                            text = offsetDisplay,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (offset != 0) GhanaGold else SpeedSafeGreen,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
+                    Text(
+                        text = "Speedometer Offset Calibration",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Align app speed with your vehicle's instrument cluster. If car speedometer shows 80 while app shows 75, set +5.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = offsetDisplay,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (offset != 0) GhanaGold else SpeedSafeGreen,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Spacer(modifier = Modifier.height(6.dp))
                     Slider(
                         value = offset.toFloat(),
@@ -928,7 +899,7 @@ private fun InAppUpdateCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "SpeedCheck v1.0.7",
+                            text = "SpeedCheck v1.0.8",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -970,5 +941,3 @@ private fun SettingsSectionHeader(title: String, icon: androidx.compose.ui.graph
         )
     }
 }
-
-

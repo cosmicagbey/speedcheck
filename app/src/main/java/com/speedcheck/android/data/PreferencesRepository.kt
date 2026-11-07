@@ -36,6 +36,7 @@ class PreferencesRepository private constructor(private val context: Context) {
         val MONITORING_ENABLED = booleanPreferencesKey("monitoring_enabled")
         val AUTO_DETECT_MOVEMENT = booleanPreferencesKey("auto_detect_movement")
         val AUTO_DETECT_SPEED_LIMIT = booleanPreferencesKey("auto_detect_speed_limit")
+        val CAMERA_VOICE_ALERTS_ENABLED = booleanPreferencesKey("camera_voice_alerts_enabled")
         val AUTO_START_ON_BOOT = booleanPreferencesKey("auto_start_on_boot")
         val HIGH_CONTRAST_MODE = booleanPreferencesKey("high_contrast_mode")
         val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
@@ -65,7 +66,7 @@ class PreferencesRepository private constructor(private val context: Context) {
             }
 
             UserPreferences(
-                speedLimitKmh = preferences[PreferencesKeys.SPEED_LIMIT_KMH] ?: 80,
+                speedLimitKmh = preferences[PreferencesKeys.SPEED_LIMIT_KMH] ?: 30,
                 approachingOffsetKmh = preferences[PreferencesKeys.APPROACHING_OFFSET_KMH] ?: 5,
                 alertMode = alertMode,
                 voiceAlertsEnabled = (alertMode == AlertMode.SOUND),
@@ -76,6 +77,7 @@ class PreferencesRepository private constructor(private val context: Context) {
                 alertCooldownSeconds = preferences[PreferencesKeys.ALERT_COOLDOWN_SECONDS] ?: 15,
                 monitoringEnabled = preferences[PreferencesKeys.MONITORING_ENABLED] ?: false,
                 autoDetectSpeedLimit = preferences[PreferencesKeys.AUTO_DETECT_SPEED_LIMIT] ?: true,
+                cameraVoiceAlertsEnabled = preferences[PreferencesKeys.CAMERA_VOICE_ALERTS_ENABLED] ?: true,
                 autoDetectVehicleMovement = preferences[PreferencesKeys.AUTO_DETECT_MOVEMENT] ?: true,
                 autoStartOnBoot = preferences[PreferencesKeys.AUTO_START_ON_BOOT] ?: true,
                 highContrastMode = preferences[PreferencesKeys.HIGH_CONTRAST_MODE] ?: true,
@@ -154,6 +156,12 @@ class PreferencesRepository private constructor(private val context: Context) {
     suspend fun updateAutoDetectSpeedLimit(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.AUTO_DETECT_SPEED_LIMIT] = enabled
+        }
+    }
+
+    suspend fun updateCameraVoiceAlertsEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CAMERA_VOICE_ALERTS_ENABLED] = enabled
         }
     }
 

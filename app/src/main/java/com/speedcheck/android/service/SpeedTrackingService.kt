@@ -33,6 +33,32 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.IOException
+
+internal fun evaluateSpeedAlertStatus(
+    speedKmh: Float,
+    effectiveLimitKmh: Int,
+    approachingOffsetKmh: Int,
+    approachingAlertEnabled: Boolean
+): SpeedAlertStatus {
+    val approachingThreshold = (effectiveLimitKmh - approachingOffsetKmh).coerceAtLeast(1)
+    return when {
+        speedKmh >= effectiveLimitKmh -> SpeedAlertStatus.EXCEEDED
+        approachingAlertEnabled && speedKmh >= approachingThreshold -> SpeedAlertStatus.APPROACHING
+        else -> SpeedAlertStatus.NORMAL
+    }
+}
+
+internal fun isPlausibleTripDistance(distanceMeters: Float, elapsedMs: Long): Boolean {
+    if (!distanceMeters.isFinite() || distanceMeters < 0f || elapsedMs !in 1..10_000L) {
+        return false
+    }
+    return distanceMeters <= 70f * (elapsedMs / 1000f)
+}
+
+internal fun hasAcceptableLocationAccuracy(hasAccuracy: Boolean, accuracyMeters: Float): Boolean {
+    return !hasAccuracy || (accuracyMeters.isFinite() && accuracyMeters <= 35f)
+}
 
 /**
  * Foreground Service responsible for continuous GPS speed monitoring,
@@ -94,6 +120,19 @@ class SpeedTrackingService : Service() {
         preferencesRepository = PreferencesRepository.getInstance(this)
         speedLogRepository = SpeedLogRepository.getInstance(this)
 
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val roadCount = SpeedCameraDetector.loadOpenStreetMapSpeedLimits(assets)
+                Log.i(TAG, "Loaded $roadCount OpenStreetMap speed-limit roads.")
+            } catch (e: IOException) {
+                Log.e(TAG, "Unable to load OpenStreetMap speed limits; retaining existing limit detection.", e)
+            } catch (e: IllegalArgumentException) {
+                Log.e(TAG, "OpenStreetMap speed-limit data is invalid; retaining existing limit detection.", e)
+            } catch (e: IllegalStateException) {
+                Log.e(TAG, "OpenStreetMap speed-limit data could not be parsed; retaining existing limit detection.", e)
+            }
+        }
+
         observePreferences()
     }
 
@@ -149,9 +188,12 @@ class SpeedTrackingService : Service() {
         totalSpeedSum = 0.0
         speedReadingsCount = 0
         smoothedSpeedKmh = 0f
+        lastLocation = null
+        consecutiveMovingReadings = 0
+        consecutiveStationarySeconds = 0
         lastAnnouncedCameraZoneId = null
 
-        // Start GPS calibration window: suppress alerts for the first 12 seconds so the
+        // Start GPS calibration window: suppress alerts for the first 3 seconds so the
         // detector can confirm the actual speed limit for this location before speaking.
         gpsCalibrationStartMs = System.currentTimeMillis()
         calibrationAnnouncementFired = false
@@ -190,6 +232,9 @@ class SpeedTrackingService : Service() {
         _monitoringStateFlow.value = MonitoringState.STOPPED
         _currentSpeedFlow.value = 0f
         smoothedSpeedKmh = 0f
+        lastLocation = null
+        consecutiveMovingReadings = 0
+        consecutiveStationarySeconds = 0
         _alertStatusFlow.value = SpeedAlertStatus.NORMAL
         _cameraDetectionFlow.value = CameraDetectionResult()
         lastAnnouncedCameraZoneId = null
@@ -197,11 +242,15 @@ class SpeedTrackingService : Service() {
         calibrationAnnouncementFired = false
 
         serviceScope.launch {
-            preferencesRepository.updateMonitoringEnabled(false)
+            try {
+                preferencesRepository.updateMonitoringEnabled(false)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to persist stopped monitoring state.", e)
+            } finally {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
         }
-
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
     }
 
     @SuppressLint("MissingPermission")
@@ -290,10 +339,17 @@ class SpeedTrackingService : Service() {
                 if (!calibrationAnnouncementFired &&
                     currentPreferences.alertMode == com.speedcheck.android.data.AlertMode.SOUND) {
                     val zoneContext = when {
-                        detectionResult.hasCameraAhead && detectionResult.isMobilePatrol ->
+                        detectionResult.hasCameraAhead && detectionResult.isMobilePatrol &&
+                            currentPreferences.cameraVoiceAlertsEnabled ->
                             "Potential police speed camera corridor. Limit $effectiveLimit km/h."
-                        detectionResult.hasCameraAhead ->
+                        detectionResult.hasCameraAhead && currentPreferences.cameraVoiceAlertsEnabled ->
                             "Speed camera zone confirmed. Limit $effectiveLimit km/h."
+                        detectionResult.hasCameraAhead ->
+                            "SpeedCheck ready. Speed limit $effectiveLimit km/h."
+                        detectionResult.areaType == "Unmapped" ->
+                            "No mapped road limit. Using selected limit $effectiveLimit km/h."
+                        !detectionResult.isAutoDetectActive ->
+                            "Manual speed limit $effectiveLimit km/h."
                         detectionResult.detectedRoadName != null ->
                             "SpeedCheck ready. Speed limit $effectiveLimit km/h."
                         else ->
@@ -312,10 +368,12 @@ class SpeedTrackingService : Service() {
                     currentSpeedKmh = speedKmh,
                     speedLimitKmh = effectiveLimit,
                     approachingOffsetKmh = currentPreferences.approachingOffsetKmh,
+                    approachingAlertEnabled = currentPreferences.approachingAlertEnabled,
                     cooldownSeconds = currentPreferences.alertCooldownSeconds,
                     hasCameraAhead = hasCameraAhead,
                     cameraZoneId = cameraZoneId,
                     isMobilePatrol = isMobilePatrol,
+                    cameraVoiceAlertsEnabled = currentPreferences.cameraVoiceAlertsEnabled,
                     alertMode = currentPreferences.alertMode,
                     onVibrateAlert = {
                         vibrationManager.triggerAlertVibration()
@@ -333,7 +391,7 @@ class SpeedTrackingService : Service() {
             cameraZoneName = detectionResult.activeZone?.name
         )
 
-        // Capture verifiable driving log snapshot for history & evidence
+        // Capture a local history snapshot when a warning or limit event occurs.
         evaluateLogSnapshot(location, speedKmh, effectiveLimit, alertStatus, detectionResult)
 
         lastLocation = location
@@ -361,10 +419,8 @@ class SpeedTrackingService : Service() {
             "${zone.name} (${zone.roadName})"
         } else if (detectionResult.detectedRoadName != null) {
             detectionResult.detectedRoadName
-        } else if (speedKmh >= 65f) {
-            "Ghana National Highway Corridor"
         } else {
-            "Urban Road / Built-up Area"
+            "Unmapped Road Area"
         }
 
         val compliance = if (alertStatus == SpeedAlertStatus.EXCEEDED) {
@@ -408,12 +464,17 @@ class SpeedTrackingService : Service() {
     }
 
     private fun calculateSpeedKmh(location: Location): Float {
-        // Discard fallback calculation if GPS accuracy is severely degraded (> 35m)
-        val hasGoodAccuracy = !location.hasAccuracy() || location.accuracy <= 35f
+        // Apply the same confidence gate to hardware speed and coordinate-derived speed.
+        val hasGoodAccuracy = hasAcceptableLocationAccuracy(
+            hasAccuracy = location.hasAccuracy(),
+            accuracyMeters = location.accuracy
+        )
 
-        val rawSpeedKmh = if (location.hasSpeed()) {
+        val rawSpeedKmh = if (!hasGoodAccuracy) {
+            0f
+        } else if (location.hasSpeed() && location.speed.isFinite()) {
             (location.speed * 3.6f).coerceAtLeast(0f)
-        } else if (hasGoodAccuracy) {
+        } else {
             val prev = lastLocation
             if (prev != null && location.time > prev.time) {
                 val distanceMeters = location.distanceTo(prev)
@@ -428,8 +489,6 @@ class SpeedTrackingService : Service() {
                     calculatedSpeedKmh.coerceIn(0f, maxPermitted)
                 } else 0f
             } else 0f
-        } else {
-            0f
         }
 
         // Deadband filter: Stationary / Walking Cutoff
@@ -451,9 +510,10 @@ class SpeedTrackingService : Service() {
 
     private fun updateTripStats(speedKmh: Float, location: Location) {
         lastLocation?.let { prev ->
-            // Only accumulate distance if the vehicle is actively moving (not stationary drift)
-            if (speedKmh > 0f) {
-                val deltaDistanceKm = prev.distanceTo(location) / 1000f
+            val elapsedMs = location.time - prev.time
+            val deltaDistanceMeters = prev.distanceTo(location)
+            if (speedKmh > 0f && isPlausibleTripDistance(deltaDistanceMeters, elapsedMs)) {
+                val deltaDistanceKm = deltaDistanceMeters / 1000f
                 tripStats = tripStats.copy(distanceKm = tripStats.distanceKm + deltaDistanceKm)
             }
         }
@@ -510,13 +570,12 @@ class SpeedTrackingService : Service() {
     }
 
     private fun evaluateSpeedAlert(speedKmh: Float, effectiveLimit: Int): SpeedAlertStatus {
-        val approachingThreshold = (effectiveLimit - currentPreferences.approachingOffsetKmh).coerceAtLeast(1)
-
-        return when {
-            speedKmh >= effectiveLimit -> SpeedAlertStatus.EXCEEDED
-            speedKmh >= approachingThreshold -> SpeedAlertStatus.APPROACHING
-            else -> SpeedAlertStatus.NORMAL
-        }
+        return evaluateSpeedAlertStatus(
+            speedKmh = speedKmh,
+            effectiveLimitKmh = effectiveLimit,
+            approachingOffsetKmh = currentPreferences.approachingOffsetKmh,
+            approachingAlertEnabled = currentPreferences.approachingAlertEnabled
+        )
     }
 
     private fun resolveEffectiveLimit(): Int {
@@ -571,7 +630,7 @@ class SpeedTrackingService : Service() {
         private val _cameraDetectionFlow = MutableStateFlow(CameraDetectionResult())
         val cameraDetectionFlow: StateFlow<CameraDetectionResult> = _cameraDetectionFlow.asStateFlow()
 
-        private val _effectiveLimitFlow = MutableStateFlow(80)
+        private val _effectiveLimitFlow = MutableStateFlow(30)
         val effectiveLimitFlow: StateFlow<Int> = _effectiveLimitFlow.asStateFlow()
 
         fun startService(context: Context) {

@@ -11,18 +11,32 @@ android {
         applicationId = "com.speedcheck.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.0.7"
+        versionCode = 9
+        versionName = "1.0.8"
+    }
+
+    sourceSets {
+        getByName("main") {
+            assets.directories.add(rootProject.file("docs/data").absolutePath)
+        }
     }
 
     signingConfigs {
         create("release") {
-            val keystoreFile = file("../keystore/upload-keystore.jks")
-            if (keystoreFile.exists()) {
+            val keystorePath = System.getenv("KEYSTORE_FILE") ?: "../keystore/upload-keystore.jks"
+            val keystoreFile = file(keystorePath)
+            val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
+            val keyAliasValue = System.getenv("KEY_ALIAS")
+            val keyPasswordValue = System.getenv("KEY_PASSWORD")
+            if (keystoreFile.exists() &&
+                keystorePassword != null &&
+                keyAliasValue != null &&
+                keyPasswordValue != null
+            ) {
                 storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "speedcheckpass"
-                keyAlias = System.getenv("KEY_ALIAS") ?: "speedcheck"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: "speedcheckpass"
+                storePassword = keystorePassword
+                keyAlias = keyAliasValue
+                keyPassword = keyPasswordValue
             }
         }
     }
@@ -31,8 +45,7 @@ android {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            val keystoreFile = file("../keystore/upload-keystore.jks")
-            if (keystoreFile.exists()) {
+            if (signingConfigs.getByName("release").storeFile != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
@@ -52,6 +65,18 @@ android {
       resources {
         excludes += "/META-INF/{AL2.0,LGPL2.1}"
       }
+    }
+}
+
+tasks.configureEach {
+    if (name == "bundleRelease" || name == "assembleRelease") {
+        doFirst {
+            if (android.signingConfigs.getByName("release").storeFile == null) {
+                throw GradleException(
+                    "Release signing is not configured. Set KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD."
+                )
+            }
+        }
     }
 }
 

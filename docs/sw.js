@@ -1,8 +1,9 @@
-const CACHE_NAME = 'speedcheck-v1.0.7';
+const CACHE_NAME = 'speedcheck-v1.1.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './styles.css',
+  './speed-estimator.js',
   './app.js',
   './manifest.json',
   './favicon.png',

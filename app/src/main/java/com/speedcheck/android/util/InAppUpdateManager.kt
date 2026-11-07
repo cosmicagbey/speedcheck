@@ -90,12 +90,12 @@ class InAppUpdateManager private constructor(context: Context) {
         _updateStatus.value = InAppUpdateStatus.Checking
 
         val packageInfo = getPackageInfo()
-        val currentVersion = packageInfo?.versionName ?: "1.0.7"
+        val currentVersion = packageInfo?.versionName ?: "1.0.8"
         val currentVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            packageInfo?.longVersionCode ?: 8L
+            packageInfo?.longVersionCode ?: 9L
         } else {
             @Suppress("DEPRECATION")
-            packageInfo?.versionCode?.toLong() ?: 8L
+            packageInfo?.versionCode?.toLong() ?: 9L
         }
 
         try {

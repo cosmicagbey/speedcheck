@@ -17,9 +17,9 @@ data class SpeedCameraZone(
 
 /**
  * Live detection result for the driver's current position relative to
- * speed camera zones AND named road speed limit zones.
+ * speed camera zones and named or OpenStreetMap road speed limits.
  *
- * Detection priority: Camera zone > Speed limit zone > Ghana default.
+ * Camera alerts remain independent from the selected speed-limit source.
  */
 data class CameraDetectionResult(
     val isAutoDetectActive: Boolean = false,
@@ -27,8 +27,8 @@ data class CameraDetectionResult(
     /** Non-null when the driver is inside a known speed camera zone. */
     val activeZone: SpeedCameraZone? = null,
 
-    /** Non-null when the driver is on a known road segment (without camera). */
-    val activeSpeedLimitZone: SpeedLimitZone? = null,
+    /** Non-null when a named or mapped road limit matches; may coexist with a camera zone. */
+    val activeSpeedLimitZone: SpeedLimitInfo? = null,
 
     val distanceToCameraMeters: Float = Float.MAX_VALUE,
     val isMovingTowardsCamera: Boolean = false,
@@ -45,6 +45,6 @@ data class CameraDetectionResult(
     /** The area type: "Urban", "Highway", "Motorway", "School Zone", etc. */
     val areaType: String = "Urban",
 
-    val recommendedLimitKmh: Int = 80,
+    val recommendedLimitKmh: Int = 30,
     val statusDescription: String = "Manual Speed Limit"
 )

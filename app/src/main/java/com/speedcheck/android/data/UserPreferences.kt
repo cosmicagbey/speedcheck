@@ -26,8 +26,8 @@ enum class AlertMode {
  * Data class representing user configuration and settings.
  */
 data class UserPreferences(
-    /** The target speed limit set by the user in km/h. Default: 80 km/h. */
-    val speedLimitKmh: Int = 80,
+    /** The fallback speed limit set by the user in km/h. Default: 30 km/h. */
+    val speedLimitKmh: Int = 30,
 
     /**
      * Offset in km/h before the speed limit when the approaching alert is triggered.
@@ -65,6 +65,9 @@ data class UserPreferences(
      * and approaching speed camera zones (N1, Fiesta Royale, Baah Jct, Kawukudi, Kanda, Borteyman).
      */
     val autoDetectSpeedLimit: Boolean = true,
+
+    /** Whether nearby speed-camera voice prompts are enabled. */
+    val cameraVoiceAlertsEnabled: Boolean = true,
 
     /** Whether to automatically detect vehicle motion (~15-20 km/h) and enter active monitoring. */
     val autoDetectVehicleMovement: Boolean = true,

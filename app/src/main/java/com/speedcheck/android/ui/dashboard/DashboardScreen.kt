@@ -197,7 +197,11 @@ fun DashboardScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
             ) {
                 Text(
-                    text = "Early voice warning at $approachingThreshold km/h • Limit $currentLimit km/h",
+                    text = if (userPreferences.approachingAlertEnabled) {
+                        "Early voice warning at $approachingThreshold km/h • Limit $currentLimit km/h"
+                    } else {
+                        "Early warning off • Over-limit alerts at $currentLimit km/h"
+                    },
                     fontSize = 12.sp,
                     color = when (alertStatus) {
                         SpeedAlertStatus.EXCEEDED -> SpeedExceededRed
@@ -286,7 +290,8 @@ fun DashboardScreen(
                             Text(
                                 text = if (cameraDetection.isMobilePatrol) "POTENTIAL POLICE SPEEDCAM"
                                 else if (cameraDetection.hasCameraAhead) "SPEED CAMERA ZONE"
-                                else "ROAD SPEED LIMIT",
+                                    else if (cameraDetection.areaType == "Unmapped") "UNMAPPED ROAD"
+                                    else "ROAD SPEED LIMIT",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (cameraDetection.hasCameraAhead) GhanaGold else SpeedSafeGreen,
@@ -307,8 +312,12 @@ fun DashboardScreen(
                             } else if (cameraDetection.hasCameraAhead) {
                                 append("📷 Camera zone enforcement: ")
                             }
-                            append("Speed limit automatically set to ${cameraDetection.recommendedLimitKmh} km/h")
-                            if (cameraDetection.areaType.isNotEmpty()) {
+                            if (cameraDetection.areaType == "Unmapped") {
+                                append("No mapped road limit; using selected limit ${cameraDetection.recommendedLimitKmh} km/h")
+                            } else {
+                                append("Speed limit automatically set to ${cameraDetection.recommendedLimitKmh} km/h")
+                            }
+                            if (cameraDetection.areaType.isNotEmpty() && cameraDetection.areaType != "Unmapped") {
                                 append(" (${cameraDetection.areaType})")
                             }
                         }

@@ -59,7 +59,7 @@ fun PrivacyPolicyDialog(
 
                 PolicySection(
                     title = "1. 100% On-Device Processing",
-                    content = "All GPS coordinates, vehicle speed calculations, and camera proximity checks run strictly on your device in real-time. No GPS logs or routes are ever transmitted or saved to external servers."
+                    content = "GPS coordinates, speed calculations, and camera proximity checks are processed on your device. SpeedCheck does not upload location data."
                 )
 
                 PolicySection(
@@ -69,17 +69,17 @@ fun PrivacyPolicyDialog(
 
                 PolicySection(
                     title = "3. Background Location Use",
-                    content = "Background location is used solely to alert you of speed limits and cameras when your screen is off or when using navigation apps like Google Maps. Location data is never stored permanently."
+                    content = "Background location is used to alert you of speed limits and cameras when the screen is off. Warning and violation history stores the event's GPS coordinates on your device (up to 500 records) until you clear it. You can export records using the Android share sheet."
                 )
 
                 PolicySection(
                     title = "4. Local Preferences Storage",
-                    content = "Your speed limit selections, voice preferences, and trip statistics are stored only on your physical device using Android DataStore and are cleared upon uninstalling the app."
+                    content = "Preferences are stored with Android DataStore. History and coordinates are stored in the app's local database. App data is excluded from Android cloud backup and device transfer; uninstalling the app or clearing its storage removes this data."
                 )
 
                 PolicySection(
                     title = "5. Compliance",
-                    content = "Built in compliance with the Ghana Data Protection Act, 2012 (Act 843), GDPR, and Google Play Developer Program Policies."
+                    content = "SpeedCheck aims to follow applicable privacy requirements and minimize data use. This is not a certification or legal determination of compliance."
                 )
             }
         },

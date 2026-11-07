@@ -292,6 +292,8 @@ const GHANA_SPEED_CAMERAS = [
     isMobilePatrol: true
   }
 ];
+const CAMERA_ALERT_DISTANCE_METERS = 75;
+const CAMERA_DIRECTION_OVERRIDE_DISTANCE_METERS = 50;
 
 // 1b. Ghana Speed Limit Zones (roads WITHOUT cameras — road-aware speed detection)
 const SPEED_LIMIT_ZONES = [
@@ -396,8 +398,14 @@ const state = {
   hasLocationPermission: localStorage.getItem('sc_has_location_perm') === 'true',
   currentSpeedKmh: 0,
   smoothedSpeedKmh: 0,
-  manualLimitKmh: parseInt(localStorage.getItem('sc_manual_limit') || '80', 10),
+  displaySpeedKmh: 0,
+  displayTargetSpeedKmh: 0,
+  displayAnimationFrameId: null,
+  lastDisplayFrameTime: null,
+  speedEstimator: new SpeedEstimator(),
+  manualLimitKmh: parseInt(localStorage.getItem('sc_manual_limit') || '30', 10),
   autoDetectEnabled: localStorage.getItem('sc_auto_detect') !== 'false',
+  cameraVoiceAlertsEnabled: localStorage.getItem('sc_camera_voice_alerts') !== 'false',
   alertMode: localStorage.getItem('sc_alert_mode') || (localStorage.getItem('sc_voice_alerts') === 'false' ? 'MUTE' : 'SOUND'),
   voiceAlertsEnabled: localStorage.getItem('sc_voice_alerts') !== 'false',
   voiceGender: localStorage.getItem('sc_voice_gender') || 'FEMALE',
@@ -412,8 +420,6 @@ const state = {
   // Motion Detection & Stationary Anchor (eliminates idle GPS wander/drift)
   motionState: 'STOPPED', // 'STOPPED', 'MANEUVERING', 'DRIVING'
   isVehicleMoving: false,
-  stationaryAnchor: null, // { lat, lon, time }
-  consecutiveSlowReadings: 0,
   consecutiveDrivingReadings: 0,
   stationarySeconds: 0,
 
@@ -424,7 +430,7 @@ const state = {
   hasCameraAhead: false,
   distanceToCameraMeters: null,
   isMovingTowardsCamera: false,
-  effectiveLimitKmh: 80,
+  effectiveLimitKmh: 30,
   lastAnnouncedCameraZoneId: null,
 
   // Alert Timers
@@ -476,8 +482,187 @@ function calculateBearing(lat1, lon1, lat2, lon2) {
   return (brng + 360) % 360;
 }
 
+const OSM_SUPPORTED_HIGHWAYS = new Set([
+  'motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link',
+  'secondary', 'secondary_link', 'tertiary', 'tertiary_link'
+]);
+const OSM_GRID_CELL_DEGREES = 0.01;
+let osmSpeedLimitMatcher = null;
+let osmSpeedLimitLoadPromise = null;
+
+function osmCellKey(latitudeCell, longitudeCell) {
+  return `${latitudeCell},${longitudeCell}`;
+}
+
+function createOsmSpeedLimitMatcher(ways) {
+  const grid = new Map();
+  let roadCount = 0;
+  let segmentId = 0;
+
+  ways.forEach((way) => {
+    if (!OSM_SUPPORTED_HIGHWAYS.has(way.highway) ||
+        !Number.isInteger(way.speedLimitKmh) ||
+        way.speedLimitKmh < 5 || way.speedLimitKmh > 160 ||
+        !Array.isArray(way.points) || way.points.length < 2) {
+      return;
+    }
+
+    roadCount++;
+    for (let index = 1; index < way.points.length; index++) {
+      const start = way.points[index - 1];
+      const end = way.points[index];
+      if (!Array.isArray(start) || !Array.isArray(end) ||
+          start.length !== 2 || end.length !== 2 ||
+          !start.every(Number.isFinite) || !end.every(Number.isFinite)) {
+        continue;
+      }
+
+      const segment = {
+        id: segmentId++,
+        way,
+        start,
+        end,
+        bearing: calculateBearing(start[0], start[1], end[0], end[1])
+      };
+      const minLat = Math.floor(Math.min(start[0], end[0]) / OSM_GRID_CELL_DEGREES);
+      const maxLat = Math.floor(Math.max(start[0], end[0]) / OSM_GRID_CELL_DEGREES);
+      const minLon = Math.floor(Math.min(start[1], end[1]) / OSM_GRID_CELL_DEGREES);
+      const maxLon = Math.floor(Math.max(start[1], end[1]) / OSM_GRID_CELL_DEGREES);
+
+      for (let latCell = minLat; latCell <= maxLat; latCell++) {
+        for (let lonCell = minLon; lonCell <= maxLon; lonCell++) {
+          const key = osmCellKey(latCell, lonCell);
+          if (!grid.has(key)) grid.set(key, []);
+          grid.get(key).push(segment);
+        }
+      }
+    }
+  });
+
+  return { grid, roadCount };
+}
+
+function loadOpenStreetMapSpeedLimits() {
+  if (osmSpeedLimitLoadPromise) return osmSpeedLimitLoadPromise;
+
+  osmSpeedLimitLoadPromise = fetch('./data/ghana_speed_limits.json')
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`OpenStreetMap speed-limit data request failed: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      if (data.schemaVersion !== 1 || !Array.isArray(data.ways) ||
+          !data.license || !data.license.includes('ODbL')) {
+        throw new Error('OpenStreetMap speed-limit data has an unsupported schema or license.');
+      }
+      const matcher = createOsmSpeedLimitMatcher(data.ways);
+      if (matcher.roadCount === 0) {
+        throw new Error('OpenStreetMap speed-limit data contains no supported roads.');
+      }
+      osmSpeedLimitMatcher = matcher;
+      return matcher;
+    });
+
+  return osmSpeedLimitLoadPromise;
+}
+
+function distanceToOsmRoadSegmentMeters(latitude, longitude, segment) {
+  const latitudeScale = 111320;
+  const longitudeScale = latitudeScale * Math.cos(toRadians(latitude));
+  const startX = (segment.start[1] - longitude) * longitudeScale;
+  const startY = (segment.start[0] - latitude) * latitudeScale;
+  const endX = (segment.end[1] - longitude) * longitudeScale;
+  const endY = (segment.end[0] - latitude) * latitudeScale;
+  const deltaX = endX - startX;
+  const deltaY = endY - startY;
+  const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+  if (lengthSquared === 0) return Math.hypot(startX, startY);
+
+  const projection = Math.max(0, Math.min(1, -(startX * deltaX + startY * deltaY) / lengthSquared));
+  return Math.hypot(startX + projection * deltaX, startY + projection * deltaY);
+}
+
+function findOpenStreetMapSpeedLimit(latitude, longitude, accuracyMeters, speedKmh, heading) {
+  if (!osmSpeedLimitMatcher ||
+      !Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+      !Number.isFinite(accuracyMeters) || accuracyMeters < 0 || accuracyMeters > 15) {
+    return null;
+  }
+
+  const maximumDistance = Math.max(8, accuracyMeters);
+  const latitudeCell = Math.floor(latitude / OSM_GRID_CELL_DEGREES);
+  const longitudeCell = Math.floor(longitude / OSM_GRID_CELL_DEGREES);
+  const checkedSegments = new Set();
+  const bestByWay = new Map();
+  const hasReliableHeading = Number.isFinite(heading) && speedKmh >= 10;
+
+  for (let latCell = latitudeCell - 1; latCell <= latitudeCell + 1; latCell++) {
+    for (let lonCell = longitudeCell - 1; lonCell <= longitudeCell + 1; lonCell++) {
+      const candidates = osmSpeedLimitMatcher.grid.get(osmCellKey(latCell, lonCell)) || [];
+      candidates.forEach((segment) => {
+        if (checkedSegments.has(segment.id)) return;
+        checkedSegments.add(segment.id);
+
+        if (hasReliableHeading) {
+          const directedDifference = Math.abs((heading - segment.bearing + 540) % 360 - 180);
+          const axisDifference = Math.min(directedDifference, 180 - directedDifference);
+          if (axisDifference > 55) return;
+        }
+
+        const distanceMeters = distanceToOsmRoadSegmentMeters(latitude, longitude, segment);
+        if (distanceMeters > maximumDistance) return;
+
+        const previous = bestByWay.get(segment.way.id);
+        if (!previous || distanceMeters < previous.distanceMeters) {
+          bestByWay.set(segment.way.id, { way: segment.way, distanceMeters });
+        }
+      });
+    }
+  }
+
+  const matches = [...bestByWay.values()].sort((first, second) => first.distanceMeters - second.distanceMeters);
+  const closest = matches[0];
+  if (!closest) return null;
+
+  const ambiguityBand = Math.max(5, accuracyMeters * 0.5);
+  const conflictingRoad = matches.slice(1).some((candidate) =>
+    candidate.way.speedLimitKmh !== closest.way.speedLimitKmh &&
+    candidate.distanceMeters - closest.distanceMeters <= ambiguityBand
+  );
+  if (conflictingRoad) return null;
+
+  const roadName = closest.way.name || 'Mapped road';
+  const highway = closest.way.highway;
+  const areaType = highway === 'motorway' || highway === 'motorway_link'
+    ? 'Motorway'
+    : highway.startsWith('trunk') || highway.startsWith('primary') || highway.startsWith('secondary')
+      ? 'Highway'
+      : 'Urban';
+
+  return {
+    id: `osm_${closest.way.id}`,
+    name: roadName,
+    roadName,
+    speedLimitKmh: closest.way.speedLimitKmh,
+    areaType,
+    source: 'OpenStreetMap'
+  };
+}
+
+function escapeHtmlText(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[character]);
+}
+
 // 4. Camera & Road Speed Limit Detection Engine (Dual-Layer)
-function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
+function evaluateCameraZones(currentLat, currentLon, speedKmh, heading, accuracyMeters) {
   if (!state.autoDetectEnabled) {
     state.activeZone = null;
     state.activeSpeedLimitZone = null;
@@ -488,13 +673,21 @@ function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
     return;
   }
 
+  const mappedRoadLimit = findOpenStreetMapSpeedLimit(
+    currentLat,
+    currentLon,
+    accuracyMeters,
+    speedKmh,
+    heading
+  );
+
   // --- Layer 1: Check Speed Camera Zones (Highest Priority) ---
   // Direction-aware: only warn if the driver is heading TOWARDS the camera.
   // Logic:
   //   • With GPS heading + speed >= 10 km/h: camera must be within 70° forward cone
   //   • Moving-away suppression: if driver is pointing away from camera, suppress warning
-  //   • Close-proximity override: within 300m warn regardless of angle (safety buffer)
-  //   • Without heading data: only warn within 300m
+  //   • Close-proximity override: within 50m warn regardless of angle (safety buffer)
+  //   • Without heading data: only warn within 75m
   let closestCamera = null;
   let minCameraDist = Infinity;
   let isMovingTowards = false;
@@ -503,7 +696,7 @@ function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
 
   for (const zone of GHANA_SPEED_CAMERAS) {
     const dist = calculateDistanceMeters(currentLat, currentLon, zone.latitude, zone.longitude);
-    if (dist > zone.radiusMeters) continue;
+    if (dist > Math.min(zone.radiusMeters, CAMERA_ALERT_DISTANCE_METERS)) continue;
 
     const bearingToCamera = calculateBearing(currentLat, currentLon, zone.latitude, zone.longitude);
     let approaching = false;
@@ -514,12 +707,12 @@ function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
 
       if (angleDiff <= 70) {
         approaching = true; // Approaching in forward cone
-      } else if (dist <= 300) {
+      } else if (dist <= CAMERA_DIRECTION_OVERRIDE_DISTANCE_METERS) {
         approaching = true; // Very close proximity safety override
       }
-      // angleDiff > 70 and dist > 300: driver is moving away or perpendicular -> suppress warning
+      // angleDiff > 70 outside the close-proximity override: suppress warning
     } else {
-      approaching = dist <= 300;
+      approaching = dist <= CAMERA_ALERT_DISTANCE_METERS;
     }
 
     if (approaching && dist < minCameraDist) {
@@ -531,12 +724,26 @@ function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
 
   if (closestCamera) {
     state.activeZone = closestCamera;
-    state.activeSpeedLimitZone = null;
+    state.activeSpeedLimitZone = mappedRoadLimit;
     state.hasCameraAhead = true;
     state.distanceToCameraMeters = minCameraDist;
     state.isMovingTowardsCamera = isMovingTowards;
     state.detectedRoadName = closestCamera.roadName || closestCamera.name;
-    state.effectiveLimitKmh = closestCamera.speedLimitKmh;
+    state.effectiveLimitKmh = mappedRoadLimit
+      ? mappedRoadLimit.speedLimitKmh
+      : closestCamera.speedLimitKmh;
+    return;
+  }
+
+  if (mappedRoadLimit) {
+    state.activeZone = null;
+    state.activeSpeedLimitZone = mappedRoadLimit;
+    state.hasCameraAhead = false;
+    state.distanceToCameraMeters = null;
+    state.isMovingTowardsCamera = false;
+    state.detectedRoadName = mappedRoadLimit.roadName;
+    state.lastAnnouncedCameraZoneId = null;
+    state.effectiveLimitKmh = mappedRoadLimit.speedLimitKmh;
     return;
   }
 
@@ -564,7 +771,7 @@ function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
     return;
   }
 
-  // --- Layer 3: Fallback Ghana Standard Limit ---
+  // --- Layer 3: Unmapped road fallback ---
   state.activeZone = null;
   state.activeSpeedLimitZone = null;
   state.hasCameraAhead = false;
@@ -572,7 +779,7 @@ function evaluateCameraZones(currentLat, currentLon, speedKmh, heading) {
   state.isMovingTowardsCamera = false;
   state.detectedRoadName = null;
   state.lastAnnouncedCameraZoneId = null;
-  state.effectiveLimitKmh = speedKmh >= 65 ? 80 : 50;
+  state.effectiveLimitKmh = state.manualLimitKmh;
 }
 
 // 5. Text-To-Speech (Web Speech API) Engine
@@ -645,7 +852,7 @@ function triggerAlert(message) {
   }
 }
 
-// 6. Evidence & History Logging (Approaching buffer warnings & speed violations only)
+// 6. Local history logging (approaching buffer warnings & speed violations only)
 function logEvidence(speedKmh, limitKmh, status, roadName) {
   if (status !== 'APPROACHING' && status !== 'EXCEEDED') return;
   const now = Date.now();
@@ -683,7 +890,7 @@ function renderEvidenceLogs() {
   if (logs.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; color: var(--text-muted); padding: 24px 0; font-size: 13px;">
-        No speed warnings or violations recorded yet.<br>Driving evidence will appear here.
+        No speed warnings or violations recorded yet.<br>Driving history will appear here.
       </div>`;
     return;
   }
@@ -714,7 +921,7 @@ function renderEvidenceLogs() {
 function exportEvidenceCsv() {
   const logs = state.evidenceLogs || [];
   if (logs.length === 0) {
-    alert("No evidence logs recorded to export yet.");
+    alert("No history records to export yet.");
     return;
   }
 
@@ -731,14 +938,14 @@ function exportEvidenceCsv() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.setAttribute("href", url);
-  link.setAttribute("download", `SpeedCheck_Ghana_Evidence_${Date.now()}.csv`);
+  link.setAttribute("download", `SpeedCheck_Ghana_History_${Date.now()}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 }
 
 function clearEvidenceLogs() {
-  if (confirm("Are you sure you want to clear all speed evidence logs?")) {
+  if (confirm("Are you sure you want to clear all speed history records?")) {
     state.evidenceLogs = [];
     localStorage.removeItem('sc_speed_evidence');
     renderEvidenceLogs();
@@ -762,14 +969,18 @@ function processSpeedAlerts(speedKmh, limitKmh) {
     // Calibration complete: fire one-time announcement (only in SOUND mode)
     if (!state.calibrationAnnouncementFired && state.alertMode === 'SOUND') {
       let announcement;
-      if (state.activeZone && state.activeZone.isMobilePatrol) {
+      if (state.activeZone && state.activeZone.isMobilePatrol && state.cameraVoiceAlertsEnabled) {
         announcement = `SpeedCheck ready. Potential police speed camera corridor. Speed limit ${limitKmh} km/h.`;
-      } else if (state.activeZone) {
+      } else if (state.activeZone && state.cameraVoiceAlertsEnabled) {
         announcement = `SpeedCheck ready. Speed camera zone confirmed. Limit ${limitKmh} km/h.`;
+      } else if (state.activeZone) {
+        announcement = `SpeedCheck ready. Speed limit ${limitKmh} km/h.`;
       } else if (state.activeSpeedLimitZone) {
         announcement = `SpeedCheck ready. ${state.activeSpeedLimitZone.name}. Speed limit ${limitKmh} km/h.`;
       } else {
-        announcement = `SpeedCheck ready. Speed limit ${limitKmh} km/h.`;
+        announcement = state.autoDetectEnabled
+          ? `No mapped road limit. Using selected limit ${limitKmh} km/h.`
+          : `Manual speed limit ${limitKmh} km/h.`;
       }
       speakVoice(announcement);
       state.calibrationAnnouncementFired = true;
@@ -782,7 +993,7 @@ function processSpeedAlerts(speedKmh, limitKmh) {
 
   const currentRoad = (state.activeZone && (state.activeZone.roadName || state.activeZone.name)) ||
                       (state.activeSpeedLimitZone && state.activeSpeedLimitZone.name) ||
-                      (limitKmh === 80 ? "Highway Corridor" : "Urban Road Corridor");
+                      (state.autoDetectEnabled ? "Unmapped Road Area" : "Manual Speed Limit Area");
 
   if (isApproachingOrExceeded) {
     const status = speedKmh >= limitKmh ? 'EXCEEDED' : 'APPROACHING';
@@ -799,13 +1010,17 @@ function processSpeedAlerts(speedKmh, limitKmh) {
 
     if (isApproachingOrExceeded) {
       if ((now - (state.lastAlertTime || 0) >= cooldownMs) || cameraZoneId !== state.lastAnnouncedCameraZoneId) {
-        triggerAlert(warnMsg);
+        if (state.cameraVoiceAlertsEnabled || state.alertMode !== 'SOUND') {
+          triggerAlert(warnMsg);
+        } else {
+          triggerAlert("You are about to cross the speed limit, slow down.");
+        }
         state.lastAlertTime = now;
         state.lastAnnouncedCameraZoneId = cameraZoneId;
         state.hasApproachingFired = true;
       }
     } else {
-      if (cameraZoneId !== state.lastAnnouncedCameraZoneId) {
+      if (state.cameraVoiceAlertsEnabled && cameraZoneId !== state.lastAnnouncedCameraZoneId) {
         triggerAlert(safeMsg);
         state.lastAnnouncedCameraZoneId = cameraZoneId;
         state.lastAlertTime = now;
@@ -855,9 +1070,7 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// Minimum vehicle speed threshold in km/h (matching Android SpeedTrackingService MIN_VEHICLE_SPEED_KMH = 8.0f)
-// Speeds below 8.0 km/h are clamped to 0 km/h to eliminate idle jitter, walking noise, and stationary GPS drift.
-const MIN_VEHICLE_SPEED_KMH = 8.0;
+const MIN_VEHICLE_SPEED_KMH = SpeedEstimator.MIN_VEHICLE_SPEED_KMH;
 
 // GPS calibration window (milliseconds). Voice alerts are suppressed for this duration after
 // monitoring starts, giving the location engine time to lock onto the actual speed limit for
@@ -868,154 +1081,16 @@ const GPS_CALIBRATION_WINDOW_MS = 3000;
 // 8. Jitter-Resistant GPS Speed & Vehicle Motion Evaluation
 function handlePositionUpdate(position) {
   const coords = position.coords;
-  const now = position.timestamp || Date.now();
-  const accuracy = (coords.accuracy !== null && !isNaN(coords.accuracy)) ? coords.accuracy : 15;
-
-  // Filter 1: Discard readings with severely degraded accuracy (> 35 meters)
-  // This prevents cell-tower triangulation jumps from causing false speed spikes while stationary
-  if (accuracy > 35) {
-    console.warn(`GPS accuracy low (${Math.round(accuracy)}m) - filtering position`);
+  const estimate = state.speedEstimator.update(position);
+  if (!estimate) {
+    console.warn("GPS position rejected because its accuracy or timestamp is invalid.");
     return;
   }
 
-  let rawCalculatedSpeed = 0;
-  const hasHardwareSpeed = (coords.speed !== null && !isNaN(coords.speed) && coords.speed >= 0);
-
-  if (hasHardwareSpeed) {
-    // Priority 1: Hardware Doppler GPS Speed from device chip
-    // Doppler frequency shift directly measures velocity without coordinate delta noise.
-    const hwSpeedKmh = coords.speed * 3.6;
-    if (hwSpeedKmh >= MIN_VEHICLE_SPEED_KMH) {
-      rawCalculatedSpeed = hwSpeedKmh;
-      state.isVehicleMoving = true;
-      state.stationaryAnchor = null;
-      state.consecutiveSlowReadings = 0;
-    } else {
-      // Speed below 8 km/h: device is stationary / idle
-      rawCalculatedSpeed = 0;
-      state.isVehicleMoving = false;
-      state.stationaryAnchor = {
-        lat: coords.latitude,
-        lon: coords.longitude,
-        time: now
-      };
-    }
-  } else {
-    // Priority 2: Fallback Delta-Distance with Stationary Anchor Filtering
-    // Used when browser does not expose coords.speed (e.g. Safari on iOS, desktop browsers, or stationary indoor GPS).
-    if (!state.stationaryAnchor) {
-      state.stationaryAnchor = {
-        lat: coords.latitude,
-        lon: coords.longitude,
-        time: now
-      };
-    }
-
-    if (!state.isVehicleMoving) {
-      // Current state: STATIONARY / IDLE
-      // Measure cumulative drift from stationary anchor point to filter out GPS wander/multipath
-      const distFromAnchor = calculateDistanceMeters(
-        state.stationaryAnchor.lat,
-        state.stationaryAnchor.lon,
-        coords.latitude,
-        coords.longitude
-      );
-      const deltaFromAnchorSec = Math.max(1.0, (now - state.stationaryAnchor.time) / 1000);
-
-      // Stationary drift radius: GPS coordinates naturally wander within ~12m or accuracy margin
-      const driftRadius = Math.max(12.0, accuracy * 0.75);
-
-      if (distFromAnchor < driftRadius) {
-        // Device is still within stationary wander bubble — definitely 0 km/h!
-        rawCalculatedSpeed = 0;
-        // Slowly adapt anchor to centroid to track gradual satellite constellation changes
-        state.stationaryAnchor.lat = (state.stationaryAnchor.lat * 0.85) + (coords.latitude * 0.15);
-        state.stationaryAnchor.lon = (state.stationaryAnchor.lon * 0.85) + (coords.longitude * 0.15);
-      } else {
-        // Displacement broke outside the drift radius! Calculate velocity from anchor
-        const speedFromAnchor = (distFromAnchor / deltaFromAnchorSec) * 3.6;
-
-        if (speedFromAnchor >= MIN_VEHICLE_SPEED_KMH) {
-          // Genuine vehicle movement confirmed! Transition from stationary to driving
-          state.isVehicleMoving = true;
-          state.stationaryAnchor = null;
-          state.consecutiveSlowReadings = 0;
-          rawCalculatedSpeed = Math.min(speedFromAnchor, 160);
-        } else {
-          // Slow drift / walking (< 8 km/h), keep stationary
-          rawCalculatedSpeed = 0;
-          state.stationaryAnchor = {
-            lat: coords.latitude,
-            lon: coords.longitude,
-            time: now
-          };
-        }
-      }
-    } else {
-      // Current state: MOVING
-      // Calculate delta from previous location fix
-      if (state.lastPosition) {
-        const prev = state.lastPosition;
-        const prevTime = prev.timestamp || now;
-        const deltaSeconds = (now - prevTime) / 1000;
-
-        if (deltaSeconds >= 0.8) {
-          const distMeters = calculateDistanceMeters(
-            prev.coords.latitude,
-            prev.coords.longitude,
-            coords.latitude,
-            coords.longitude
-          );
-
-          const unconstrainedSpeed = (distMeters / deltaSeconds) * 3.6;
-
-          // Physical Acceleration Sanity Check:
-          // Clamps unrealistic jumps (max 25 km/h per second acceleration)
-          const maxPermitted = (state.smoothedSpeedKmh > 0 ? state.smoothedSpeedKmh : 20) + (25 * deltaSeconds);
-          const computedSpeed = Math.min(unconstrainedSpeed, maxPermitted);
-
-          if (computedSpeed < MIN_VEHICLE_SPEED_KMH) {
-            // Speed dropped below threshold: count consecutive slow readings
-            state.consecutiveSlowReadings = (state.consecutiveSlowReadings || 0) + 1;
-            if (state.consecutiveSlowReadings >= 2) {
-              // Confirmed vehicle stopped
-              state.isVehicleMoving = false;
-              state.stationaryAnchor = {
-                lat: coords.latitude,
-                lon: coords.longitude,
-                time: now
-              };
-              rawCalculatedSpeed = 0;
-            } else {
-              rawCalculatedSpeed = 0;
-            }
-          } else {
-            state.consecutiveSlowReadings = 0;
-            rawCalculatedSpeed = computedSpeed;
-          }
-        } else {
-          // Sub-second update: preserve current speed without sudden spikes
-          rawCalculatedSpeed = state.currentSpeedKmh;
-        }
-      }
-    }
-  }
-
-  // Filter 2: Deadband Cutoff (< 8.0 km/h -> 0 km/h)
-  // Matches Android SpeedTrackingService MIN_VEHICLE_SPEED_KMH = 8.0f
-  if (rawCalculatedSpeed < MIN_VEHICLE_SPEED_KMH) {
-    rawCalculatedSpeed = 0;
-    state.smoothedSpeedKmh = 0;
-    state.currentSpeedKmh = 0;
-  } else {
-    // Filter 3: Exponential Moving Average Smoothing for realistic gauge needle
-    if (state.smoothedSpeedKmh === 0) {
-      state.smoothedSpeedKmh = rawCalculatedSpeed;
-    } else {
-      state.smoothedSpeedKmh = (0.55 * rawCalculatedSpeed) + (0.45 * state.smoothedSpeedKmh);
-    }
-    state.currentSpeedKmh = state.smoothedSpeedKmh;
-  }
+  const now = position.timestamp;
+  state.currentSpeedKmh = estimate.speedKmh;
+  state.smoothedSpeedKmh = estimate.speedKmh;
+  state.isVehicleMoving = estimate.isMoving;
 
   // Motion State & Vehicle Detection:
   // Requires consistent speed >= 18 km/h to confirm vehicle driving
@@ -1058,7 +1133,13 @@ function handlePositionUpdate(position) {
   }
 
   // Camera Zone Evaluation
-  evaluateCameraZones(coords.latitude, coords.longitude, state.currentSpeedKmh, coords.heading);
+  evaluateCameraZones(
+    coords.latitude,
+    coords.longitude,
+    state.currentSpeedKmh,
+    coords.heading,
+    coords.accuracy
+  );
 
   // Voice Alert Evaluation
   // Pass offset-adjusted speed for alert evaluation so warnings match what vehicle speedometer shows
@@ -1146,15 +1227,14 @@ function actuallyStartMonitoring() {
   state.trip.distanceKm = 0;
   state.currentSpeedKmh = 0;
   state.smoothedSpeedKmh = 0;
+  state.speedEstimator.reset();
   state.motionState = 'STOPPED';
   state.isVehicleMoving = false;
-  state.stationaryAnchor = null;
-  state.consecutiveSlowReadings = 0;
   state.consecutiveDrivingReadings = 0;
   state.stationarySeconds = 0;
 
-  // Start GPS calibration: suppress voice alerts until location engine has had time
-  // to confirm the speed limit for this area (GPS_CALIBRATION_WINDOW_MS = 12 seconds).
+  // Start GPS calibration: suppress voice alerts until location detection has initialized
+  // (GPS_CALIBRATION_WINDOW_MS = 3 seconds).
   state.calibrationStartTime = Date.now();
   state.calibrationAnnouncementFired = false;
 
@@ -1184,13 +1264,12 @@ function stopMonitoring() {
   state.isMonitoring = false;
   state.currentSpeedKmh = 0;
   state.smoothedSpeedKmh = 0;
+  state.speedEstimator.reset();
   state.activeZone = null;
   state.distanceToCameraMeters = null;
   state.lastPosition = null;
   state.motionState = 'STOPPED';
   state.isVehicleMoving = false;
-  state.stationaryAnchor = null;
-  state.consecutiveSlowReadings = 0;
   state.consecutiveDrivingReadings = 0;
   state.stationarySeconds = 0;
   state.calibrationStartTime = 0;
@@ -1200,25 +1279,62 @@ function stopMonitoring() {
 }
 
 // 10. UI Rendering & Gauge Control
+function animateDisplaySpeed(frameTime) {
+  const previousFrameTime = state.lastDisplayFrameTime || frameTime;
+  const deltaMs = Math.min(100, Math.max(0, frameTime - previousFrameTime));
+  state.lastDisplayFrameTime = frameTime;
+
+  const remaining = state.displayTargetSpeedKmh - state.displaySpeedKmh;
+  state.displaySpeedKmh += remaining * (1 - Math.exp(-deltaMs / 180));
+  if (Math.abs(state.displayTargetSpeedKmh - state.displaySpeedKmh) < 0.1) {
+    state.displaySpeedKmh = state.displayTargetSpeedKmh;
+  }
+
+  renderDisplaySpeed();
+  if (state.displaySpeedKmh !== state.displayTargetSpeedKmh) {
+    state.displayAnimationFrameId = requestAnimationFrame(animateDisplaySpeed);
+  } else {
+    state.displayAnimationFrameId = null;
+    state.lastDisplayFrameTime = null;
+  }
+}
+
+function renderDisplaySpeed() {
+  const speed = Math.max(0, Math.round(state.displaySpeedKmh));
+  const speedNumberEl = document.getElementById('speedNumber');
+  if (speedNumberEl) speedNumberEl.textContent = speed;
+
+  const speedMphEl = document.getElementById('speedMphUnit');
+  if (speedMphEl && state.showDualUnitsMph) {
+    speedMphEl.textContent = `≈ ${speed > 0 ? Math.round(speed * 0.621371) : 0} MPH`;
+  }
+
+  const ratio = Math.min(1, Math.max(0, state.displaySpeedKmh) / 160);
+  const gaugeEl = document.getElementById('gaugeProgress');
+  if (gaugeEl) gaugeEl.style.strokeDashoffset = 330 - (ratio * 330);
+}
+
 function updateUI() {
   // Apply speedometer offset calibration: adjust GPS reading to match vehicle's instrument cluster.
   // Positive offset = GPS reads faster than vehicle (car speedometer shows higher, e.g. +5 to bring GPS up).
   // Negative offset = GPS reads slower than vehicle.
   const rawDisplaySpeed = state.currentSpeedKmh < MIN_VEHICLE_SPEED_KMH ? 0 : state.currentSpeedKmh;
-  const speed = rawDisplaySpeed > 0 ? Math.max(0, Math.round(rawDisplaySpeed + state.speedometerOffsetKmh)) : 0;
+  const trustedSpeed = rawDisplaySpeed > 0
+    ? Math.max(0, rawDisplaySpeed + state.speedometerOffsetKmh)
+    : 0;
+  state.displayTargetSpeedKmh = trustedSpeed;
+  if (state.displayAnimationFrameId === null) {
+    state.displayAnimationFrameId = requestAnimationFrame(animateDisplaySpeed);
+  }
+  const speed = Math.max(0, Math.round(state.displaySpeedKmh));
   const limit = state.effectiveLimitKmh;
-
-  // Digital Number
-  const speedNumberEl = document.getElementById('speedNumber');
-  if (speedNumberEl) speedNumberEl.textContent = speed;
 
   // Dual MPH Readout (US Import Mode)
   const speedMphEl = document.getElementById('speedMphUnit');
   if (speedMphEl) {
     if (state.showDualUnitsMph) {
       speedMphEl.style.display = 'block';
-      const speedMph = speed > 0 ? Math.round(speed * 0.621371) : 0;
-      speedMphEl.textContent = `≈ ${speedMph} MPH`;
+      speedMphEl.textContent = `≈ ${speed > 0 ? Math.round(speed * 0.621371) : 0} MPH`;
     } else {
       speedMphEl.style.display = 'none';
     }
@@ -1256,9 +1372,9 @@ function updateUI() {
   let alertState = 'normal';
   const approachingThreshold = Math.max(1, limit - state.approachingOffsetKmh);
 
-  if (speed >= limit && state.isMonitoring) {
+  if (trustedSpeed >= limit && state.isMonitoring) {
     alertState = 'exceeded';
-  } else if (speed >= approachingThreshold && state.isMonitoring) {
+  } else if (trustedSpeed >= approachingThreshold && state.isMonitoring) {
     alertState = 'approaching';
   }
 
@@ -1267,6 +1383,7 @@ function updateUI() {
     if (alertState === 'exceeded') {
       gaugeEl.style.stroke = 'url(#dangerGrad)';
       gaugeEl.style.filter = 'drop-shadow(0 0 16px rgba(255, 61, 0, 0.45))';
+      const speedNumberEl = document.getElementById('speedNumber');
       if (speedNumberEl) speedNumberEl.style.color = 'var(--exceeded-red)';
       if (glowEl) {
         glowEl.style.background = 'radial-gradient(circle, rgba(255, 61, 0, 0.24) 0%, rgba(255, 61, 0, 0.05) 60%, transparent 75%)';
@@ -1274,6 +1391,7 @@ function updateUI() {
     } else if (alertState === 'approaching') {
       gaugeEl.style.stroke = 'url(#amberGrad)';
       gaugeEl.style.filter = 'drop-shadow(0 0 14px rgba(255, 214, 0, 0.35))';
+      const speedNumberEl = document.getElementById('speedNumber');
       if (speedNumberEl) speedNumberEl.style.color = 'var(--approaching-amber)';
       if (glowEl) {
         glowEl.style.background = 'radial-gradient(circle, rgba(255, 214, 0, 0.18) 0%, rgba(255, 214, 0, 0.04) 60%, transparent 75%)';
@@ -1281,6 +1399,7 @@ function updateUI() {
     } else {
       gaugeEl.style.stroke = 'url(#safeGrad)';
       gaugeEl.style.filter = 'drop-shadow(0 0 12px var(--safe-glow))';
+      const speedNumberEl = document.getElementById('speedNumber');
       if (speedNumberEl) speedNumberEl.style.color = 'var(--text-primary)';
       if (glowEl) {
         glowEl.style.background = 'radial-gradient(circle, rgba(0, 230, 118, 0.16) 0%, rgba(0, 230, 118, 0.03) 60%, transparent 75%)';
@@ -1302,10 +1421,10 @@ function updateUI() {
       badgeText.textContent = `📡 Confirming speed limit… (${remaining}s)`;
     } else if (alertState === 'exceeded') {
       badgeEl.classList.add('exceeded');
-      badgeText.textContent = `Over Limit (${speed} km/h)!`;
+      badgeText.textContent = `Over Limit (${Math.round(trustedSpeed)} km/h)!`;
     } else if (alertState === 'approaching') {
       badgeEl.classList.add('approaching');
-      badgeText.textContent = `Approaching Limit (${speed} km/h)`;
+      badgeText.textContent = `Approaching Limit (${Math.round(trustedSpeed)} km/h)`;
     } else {
       badgeEl.classList.add('active');
       badgeText.textContent = state.motionState === 'DRIVING' ? "Monitoring Active (Driving)" : "Monitoring Active";
@@ -1338,12 +1457,16 @@ function updateUI() {
       if (state.activeZone) {
         const d = Math.round(state.distanceToCameraMeters);
         const prefix = state.activeZone.isMobilePatrol ? "⚠️ Potential Police Speedcam:" : "📷 Camera Ahead:";
-        radarStatus.innerHTML = `<strong>${prefix}</strong> ${state.activeZone.roadName || state.activeZone.name} (${d}m) • Limit: <strong>${state.activeZone.speedLimitKmh} km/h</strong>`;
+        const source = state.activeSpeedLimitZone && state.activeSpeedLimitZone.source === 'OpenStreetMap'
+          ? ' · OpenStreetMap road limit'
+          : '';
+        radarStatus.innerHTML = `<strong>${prefix}</strong> ${state.activeZone.roadName || state.activeZone.name} (${d}m) • Limit: <strong>${state.effectiveLimitKmh} km/h</strong>${source}`;
       } else if (state.activeSpeedLimitZone) {
-        radarStatus.innerHTML = `<strong>📍 Road Limit:</strong> ${state.activeSpeedLimitZone.name} • Limit: <strong>${state.activeSpeedLimitZone.speedLimitKmh} km/h</strong>`;
+        const roadName = escapeHtmlText(state.activeSpeedLimitZone.name);
+        const source = state.activeSpeedLimitZone.source === 'OpenStreetMap' ? ' (OpenStreetMap)' : '';
+        radarStatus.innerHTML = `<strong>📍 Road Limit${source}:</strong> ${roadName} • Limit: <strong>${state.activeSpeedLimitZone.speedLimitKmh} km/h</strong>`;
       } else {
-        const area = limit === 80 ? "Ghana Highway" : "Urban Town Corridor";
-        radarStatus.innerHTML = `<strong>Auto-Detect Active:</strong> ${area} • Current Limit: <strong>${limit} km/h</strong>`;
+        radarStatus.innerHTML = `<strong>No mapped road limit:</strong> Using selected limit <strong>${limit} km/h</strong>`;
       }
     } else {
       radarCard.classList.remove('auto-active');
@@ -1445,6 +1568,10 @@ function closeModal(id) {
 document.addEventListener('DOMContentLoaded', () => {
   // Apply saved theme
   document.documentElement.setAttribute('data-theme', state.isDarkMode ? 'dark' : 'light');
+
+  loadOpenStreetMapSpeedLimits().catch((error) => {
+    console.error('OpenStreetMap speed limits failed to load; existing fallbacks remain active.', error);
+  });
 
   // Check if browser permission query is supported
   if (navigator.permissions && navigator.permissions.query) {
@@ -1678,6 +1805,15 @@ document.addEventListener('DOMContentLoaded', () => {
       state.showDualUnitsMph = e.target.checked;
       localStorage.setItem('sc_dual_units_mph', state.showDualUnitsMph);
       updateUI();
+    });
+  }
+
+  const cameraVoiceAlertsToggle = document.getElementById('cameraVoiceAlertsToggle');
+  if (cameraVoiceAlertsToggle) {
+    cameraVoiceAlertsToggle.checked = state.cameraVoiceAlertsEnabled;
+    cameraVoiceAlertsToggle.addEventListener('change', (e) => {
+      state.cameraVoiceAlertsEnabled = e.target.checked;
+      localStorage.setItem('sc_camera_voice_alerts', state.cameraVoiceAlertsEnabled);
     });
   }
 

@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
 /**
  * Primary navigation tabs for the SpeedCheck application:
  * 1. Home - Live dashboard, camera radar, speed limits, speedometer
- * 2. History - Verifiable GPS and speed evidence records
+ * 2. History - Local GPS and speed warning records
  * 3. Settings - Limits, auto-detect, voice parameters, road safety guides
  */
 enum class AppTab {

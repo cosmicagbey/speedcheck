@@ -16,4 +16,5 @@ local.properties
 *.aab
 *.apk
 SpeedCheck.aab
-
+keystore/
+.kotlin/

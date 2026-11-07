@@ -1,10 +1,14 @@
 package com.speedcheck.android
 
 import com.speedcheck.android.data.UserPreferences
+import com.speedcheck.android.model.CameraDetectionResult
 import com.speedcheck.android.model.MonitoringState
 import com.speedcheck.android.model.SpeedAlertStatus
 import com.speedcheck.android.model.TripStats
 import com.speedcheck.android.service.SpeedCameraDetector
+import com.speedcheck.android.service.hasAcceptableLocationAccuracy
+import com.speedcheck.android.service.evaluateSpeedAlertStatus
+import com.speedcheck.android.service.isPlausibleTripDistance
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -20,12 +24,14 @@ class SpeedCheckUnitTest {
     @Test
     fun defaultPreferences_haveCorrectGhanaStandards() {
         val prefs = UserPreferences()
-        assertEquals(80, prefs.speedLimitKmh)
+        assertEquals(30, prefs.speedLimitKmh)
         assertEquals(5, prefs.approachingOffsetKmh)
         assertEquals(com.speedcheck.android.data.AlertMode.SOUND, prefs.alertMode)
         assertTrue(prefs.voiceAlertsEnabled)
         assertTrue(prefs.approachingAlertEnabled)
         assertTrue(prefs.autoDetectSpeedLimit)
+        assertTrue(prefs.cameraVoiceAlertsEnabled)
+        assertEquals(30, CameraDetectionResult().recommendedLimitKmh)
         assertTrue(prefs.autoDetectVehicleMovement)
         assertTrue(prefs.autoStartOnBoot)
         assertEquals("FEMALE", prefs.voiceGender)
@@ -81,6 +87,39 @@ class SpeedCheckUnitTest {
         assertEquals(SpeedAlertStatus.APPROACHING, evaluate(79.9f))
         assertEquals(SpeedAlertStatus.EXCEEDED, evaluate(80f))
         assertEquals(SpeedAlertStatus.EXCEEDED, evaluate(105f))
+    }
+
+    @Test
+    fun speedAlertStatus_respectsApproachingAlertPreference() {
+        assertEquals(
+            SpeedAlertStatus.NORMAL,
+            evaluateSpeedAlertStatus(75f, 80, 5, approachingAlertEnabled = false)
+        )
+        assertEquals(
+            SpeedAlertStatus.EXCEEDED,
+            evaluateSpeedAlertStatus(80f, 80, 5, approachingAlertEnabled = false)
+        )
+        assertEquals(
+            SpeedAlertStatus.APPROACHING,
+            evaluateSpeedAlertStatus(75f, 80, 5, approachingAlertEnabled = true)
+        )
+    }
+
+    @Test
+    fun tripDistance_rejectsGpsJumpsAndLongGaps() {
+        assertTrue(isPlausibleTripDistance(70f, 1_000L))
+        assertFalse(isPlausibleTripDistance(71f, 1_000L))
+        assertFalse(isPlausibleTripDistance(1f, 0L))
+        assertFalse(isPlausibleTripDistance(1f, 10_001L))
+    }
+
+    @Test
+    fun locationAccuracy_rejectsOnlyPoorOrInvalidReportedAccuracy() {
+        assertTrue(hasAcceptableLocationAccuracy(hasAccuracy = false, accuracyMeters = Float.NaN))
+        assertTrue(hasAcceptableLocationAccuracy(hasAccuracy = true, accuracyMeters = 20f))
+        assertTrue(hasAcceptableLocationAccuracy(hasAccuracy = true, accuracyMeters = 35f))
+        assertFalse(hasAcceptableLocationAccuracy(hasAccuracy = true, accuracyMeters = 35.1f))
+        assertFalse(hasAcceptableLocationAccuracy(hasAccuracy = true, accuracyMeters = Float.NaN))
     }
 
     @Test
@@ -196,6 +235,11 @@ class SpeedCheckUnitTest {
         // Verify permanent cameras list for Settings page has exactly 5 cameras
         val fixedCameras = cameras.filter { !it.isMobilePatrol }
         assertEquals(5, fixedCameras.size)
+    }
+
+    @Test
+    fun cameraVoiceWarnings_areLimitedToNearbyLocations() {
+        assertEquals(75f, SpeedCameraDetector.CAMERA_ALERT_DISTANCE_METERS, 0f)
     }
 
     @Test

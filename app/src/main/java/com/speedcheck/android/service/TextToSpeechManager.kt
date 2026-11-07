@@ -207,10 +207,12 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
         currentSpeedKmh: Float,
         speedLimitKmh: Int,
         approachingOffsetKmh: Int,
+        approachingAlertEnabled: Boolean = true,
         cooldownSeconds: Int,
         hasCameraAhead: Boolean = false,
         cameraZoneId: String? = null,
         isMobilePatrol: Boolean = false,
+        cameraVoiceAlertsEnabled: Boolean = true,
         alertMode: AlertMode = AlertMode.SOUND,
         onVibrateAlert: (() -> Unit)? = null
     ) {
@@ -230,7 +232,8 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
         val currentTime = System.currentTimeMillis()
         val cooldownMs = cooldownSeconds * 1000L
         val approachingThreshold = (speedLimitKmh - approachingOffsetKmh).coerceAtLeast(1)
-        val isApproachingOrExceeded = currentSpeedKmh >= approachingThreshold
+        val isApproachingOrExceeded = currentSpeedKmh >= speedLimitKmh ||
+            (approachingAlertEnabled && currentSpeedKmh >= approachingThreshold)
 
         if (hasCameraAhead && cameraZoneId != null) {
             val safeMessage = if (isMobilePatrol) {
@@ -248,14 +251,18 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
             if (isApproachingOrExceeded) {
                 // In camera zone AND about to break / exceeding limit
                 if (currentTime - lastAlertTimeMs >= cooldownMs || cameraZoneId != lastAnnouncedCameraZoneId) {
-                    dispatchAlert(warningMessage)
+                    if (cameraVoiceAlertsEnabled || alertMode != AlertMode.SOUND) {
+                        dispatchAlert(warningMessage)
+                    } else {
+                        dispatchAlert("You are about to cross the speed limit, slow down.")
+                    }
                     lastAlertTimeMs = currentTime
                     lastAnnouncedCameraZoneId = cameraZoneId
                     hasApproachingAlertFired = true
                 }
             } else {
                 // In camera zone AND driving safely within limit: announce once per corridor entry
-                if (cameraZoneId != lastAnnouncedCameraZoneId) {
+                if (cameraVoiceAlertsEnabled && cameraZoneId != lastAnnouncedCameraZoneId) {
                     dispatchAlert(safeMessage)
                     lastAnnouncedCameraZoneId = cameraZoneId
                     lastAlertTimeMs = currentTime
@@ -274,7 +281,7 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
                     lastAlertTimeMs = currentTime
                     hasApproachingAlertFired = true
                 }
-            } else if (currentSpeedKmh < (approachingThreshold - 2)) {
+            } else if (!approachingAlertEnabled || currentSpeedKmh < (approachingThreshold - 2)) {
                 // Safely below threshold: reset approaching alert flag
                 hasApproachingAlertFired = false
             }

@@ -42,14 +42,21 @@ No download or installation required! Anyone on iOS (Safari) or Android can use 
 ## 🚀 Key Features
 
 ### 1. 📷 Auto-Detect Speed Limits & Camera Radar
-- **Automatic Camera Corridor Detection**: Detects your GPS position and heading as you drive towards speed camera traps in Accra, announces the zone, and automatically adjusts your speed limit:
+- **Mapped Camera Corridor Detection**: Detects your GPS position and heading as you drive towards mapped camera corridors and announces the zone. On roads without a confident mapped limit it uses the existing curated zones, then the configured fallback; it never infers a limit from your speed:
   1. **Borteyman Sports Facility T-Junction** (Limit: **80 km/h**)
   2. **The N1 Highway near Fiesta Royale Hotel** (Limit: **80 km/h**)
   3. **The N1 Highway near Baah Junction / Bar Junction** (Limit: **80 km/h**)
   4. **Kawukudi (Olusegun Obasanjo Highway)** (Limit: **50 km/h**)
   5. **Kanda Highway** (Limit: **50 km/h**)
-- **Live Distance Countdown**: Shows your real-time distance from approaching cameras (e.g., *"📍 N1 Fiesta Royale • 450m ahead"*).
+- **Nearby Camera Alerts**: Camera-specific prompts are limited to within **75 m** of mapped camera coordinates to reduce early or distant warnings. Camera coordinates are approximate.
+- **Camera Voice Prompt Toggle**: Enable or disable camera voice prompts in the Location / Known Speed Camera settings. Speed-limit warnings remain active when camera prompts are off.
+- **GPS Speed Filtering**: The web app requires accurate, consecutive position-supported movement, rejects stale or poor-accuracy fixes, and limits acceleration spikes before updating the speedometer.
 - **One-Touch Toggle**: Easily switch between **Auto-Detect** mode and **Manual** mode with a single tap on the Dashboard.
+- **Mapped Road Speed Limits**: Uses explicit OpenStreetMap speed limits on major road types only when GPS accuracy and road geometry support a confident match. Conditional limits, direction-specific limits, and ambiguous matches are excluded; unmapped roads continue using the existing fallback.
+
+Road-limit data is an OpenStreetMap-derived Ghana extract (snapshot: 2026-11-06), © OpenStreetMap contributors, licensed under the [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Coverage is incomplete and is not an official legal source; always follow posted signs. OpenStreetMap supplied no fixed speed-camera features for Ghana in the queried data, so camera locations remain separate from this road-limit dataset.
+
+Automatic detection starts with a **30 km/h** fallback until a confident location-based limit is available. Previously selected fallback limits are preserved.
 
 ### 2. 🗣️ Proactive Voice Alerts (Text-to-Speech)
 - **Early Approaching Alert**: Warns you *before* reaching the speed limit so you don't accidentally get ticketed:
@@ -71,7 +78,7 @@ No download or installation required! Anyone on iOS (Safari) or Android can use 
 - **Persistent Minimal Notification**: Compliant with Android foreground service guidelines with quick "Stop Monitoring" button.
 
 ### 4. 🎛️ Manual Speed Limits & Ghana Presets
-- One-tap speed limit selection matching Ghana Road Safety standards:
+- One-tap speed limit selection for common Ghanaian road types (check posted signs and applicable regulations):
   - **30 km/h**: School zones, busy market corridors, hospital areas, and residential feeder roads.
   - **50 km/h**: Standard urban roads and town centers (Accra, Kumasi, Takoradi).
   - **80 km/h**: Inter-urban highways and single-lane regional roads.
@@ -112,6 +119,8 @@ cd speedcheck
 ./gradlew test
 ./gradlew assembleDebug
 ```
+
+Use JDK 17 or newer (for example, Android Studio's bundled JBR).
 The output APK will be generated at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ---
@@ -141,13 +150,16 @@ The output APK will be generated at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## 🔒 Privacy & Data Policy
 
-SpeedCheck does **not** track personal identifiers or sell data. No advertising identifier (AAID) is used, and no location data ever leaves your device.  
+SpeedCheck does **not** track personal identifiers or sell data. No advertising identifier (AAID) is used, and location data is not uploaded. The Android app keeps up to 500 warning/violation history records, including GPS coordinates, on-device until cleared; CSV export is user-initiated. Android backup excludes app preferences and history. The web app stores up to 100 warning/violation records, including coordinates, in browser local storage until cleared.
+
 Read the full document: **[Privacy Policy](PRIVACY_POLICY.md)**.
 
 ---
 
 ## 🚀 Google Play Closed Testing
 
-For Google Play Console tracks:
-* **Android App Bundle (.aab)**: Built automatically by `./gradlew bundleRelease` and attached to every GitHub Release.
-* **Upload Keystore**: Located at `keystore/upload-keystore.jks` (alias: `speedcheck`).
+For Google Play Console tracks, `./gradlew bundleRelease` creates an Android App Bundle. Local release signing requires the local keystore path and `KEYSTORE_PASSWORD`, `KEY_ALIAS`, and `KEY_PASSWORD` environment variables.
+
+For CI releases, configure `ANDROID_KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, and `KEY_PASSWORD` as repository secrets. Releases are published from `v*` version tags. Never commit signing keys or passwords.
+
+The former repository upload key must be treated as compromised. Rotate the Play upload key and update these secrets before publishing. Removing the key from the current tree does not remove copies from Git history; coordinate any history rewrite with repository collaborators.

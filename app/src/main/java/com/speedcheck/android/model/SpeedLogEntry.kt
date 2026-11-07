@@ -4,7 +4,7 @@ import java.util.UUID
 
 /**
  * Represents a historical driving speed and location snapshot.
- * Serves as verifiable evidence for drivers against false speeding tickets.
+ * Stores a local speed-warning history snapshot for the driver's reference.
  */
 data class SpeedLogEntry(
     val id: String = UUID.randomUUID().toString(),

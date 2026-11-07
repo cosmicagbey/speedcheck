@@ -1,8 +1,11 @@
 package com.speedcheck.android.service
 
+import android.content.res.AssetManager
 import android.location.Location
 import com.speedcheck.android.model.CameraDetectionResult
+import com.speedcheck.android.model.MatchedRoadSpeedLimit
 import com.speedcheck.android.model.SpeedCameraZone
+import com.speedcheck.android.model.SpeedLimitInfo
 import com.speedcheck.android.model.SpeedLimitZone
 import kotlin.math.abs
 
@@ -13,11 +16,25 @@ import kotlin.math.abs
  *           Triggers camera-specific voice alerts.
  * Layer 2 — Speed Limit Zones: Named road segments with their legal limit.
  *           Provides accurate speed limits without camera warnings.
- * Fallback — Ghana standard defaults (50 km/h urban, 80 km/h highway).
+ * Fallback — the user-selected manual speed limit on unmapped roads.
  *
- * Detection priority: Camera zone > Speed limit zone > Default.
+ * Speed limits prefer a confident OSM road match, then camera/curated zones, then the manual limit.
+ * Camera alerts remain independent from the selected speed-limit source.
  */
 object SpeedCameraDetector {
+    const val CAMERA_ALERT_DISTANCE_METERS = 75f
+    private const val CAMERA_DIRECTION_OVERRIDE_DISTANCE_METERS = 50f
+
+    @Volatile
+    private var openStreetMapMatcher: OpenStreetMapSpeedLimitMatcher? = null
+
+    @Synchronized
+    fun loadOpenStreetMapSpeedLimits(assetManager: AssetManager): Int {
+        openStreetMapMatcher?.let { return it.roadCount }
+        val matcher = OpenStreetMapSpeedLimitData.load(assetManager)
+        openStreetMapMatcher = matcher
+        return matcher.roadCount
+    }
 
     // =====================================================================
     // LAYER 1: SPEED CAMERA ZONES (known MTTD automated cameras)
@@ -995,7 +1012,7 @@ object SpeedCameraDetector {
      * Dual-layer location evaluation:
      * 1. Check speed camera zones (highest priority)
      * 2. Check speed limit zones (medium priority)
-     * 3. Fallback to Ghana defaults (lowest priority)
+     * 3. Fallback to the user-selected limit when no mapped zone matches
      */
     fun evaluateLocation(
         currentLocation: Location,
@@ -1018,33 +1035,41 @@ object SpeedCameraDetector {
             )
         }
 
+        val mappedRoadLimit = findOpenStreetMapSpeedLimit(currentLocation, currentSpeedKmh)
+
         // ── Layer 1: Speed Camera Zone Detection ──
         val cameraResult = findClosestCameraZone(currentLocation, currentSpeedKmh)
         if (cameraResult != null) {
             val (zone, distance, movingTowards) = cameraResult
             val dist = distance.toInt()
-            val statusDesc = if (zone.isMobilePatrol) {
-                "⚠️ Potential Police Speedcam: ${zone.roadName} (${dist}m) • ${zone.speedLimitKmh} km/h"
+            val effectiveLimit = mappedRoadLimit?.speedLimitKmh ?: zone.speedLimitKmh
+            val cameraDescription = if (zone.isMobilePatrol) {
+                "⚠️ Potential Police Speedcam: ${zone.roadName} (${dist}m) • $effectiveLimit km/h"
             } else {
-                "📷 ${zone.roadName} (${dist}m) • ${zone.speedLimitKmh} km/h"
+                "📷 ${zone.roadName} (${dist}m) • $effectiveLimit km/h"
             }
             return CameraDetectionResult(
                 isAutoDetectActive = true,
                 activeZone = zone,
-                activeSpeedLimitZone = null,
+                activeSpeedLimitZone = mappedRoadLimit,
                 distanceToCameraMeters = distance,
                 isMovingTowardsCamera = movingTowards,
                 hasCameraAhead = true,
                 isMobilePatrol = zone.isMobilePatrol,
-                detectedRoadName = zone.roadName,
-                areaType = if (zone.speedLimitKmh >= 80) "Highway" else if (zone.speedLimitKmh <= 30) "School Zone" else "Urban",
-                recommendedLimitKmh = zone.speedLimitKmh,
-                statusDescription = statusDesc
+                detectedRoadName = mappedRoadLimit?.roadName ?: zone.roadName,
+                areaType = mappedRoadLimit?.areaType
+                    ?: if (zone.speedLimitKmh >= 80) "Highway" else if (zone.speedLimitKmh <= 30) "School Zone" else "Urban",
+                recommendedLimitKmh = effectiveLimit,
+                statusDescription = if (mappedRoadLimit != null) {
+                    "$cameraDescription • OpenStreetMap road limit"
+                } else {
+                    cameraDescription
+                }
             )
         }
 
         // ── Layer 2: Speed Limit Zone Detection ──
-        val limitZone = findClosestSpeedLimitZone(currentLocation)
+        val limitZone: SpeedLimitInfo? = mappedRoadLimit ?: findClosestSpeedLimitZone(currentLocation)
         if (limitZone != null) {
             return CameraDetectionResult(
                 isAutoDetectActive = true,
@@ -1056,13 +1081,15 @@ object SpeedCameraDetector {
                 detectedRoadName = limitZone.roadName,
                 areaType = limitZone.areaType,
                 recommendedLimitKmh = limitZone.speedLimitKmh,
-                statusDescription = "📍 ${limitZone.roadName} • ${limitZone.speedLimitKmh} km/h"
+                statusDescription = if (limitZone is MatchedRoadSpeedLimit) {
+                    "📍 OpenStreetMap road limit: ${limitZone.roadName} • ${limitZone.speedLimitKmh} km/h"
+                } else {
+                    "📍 ${limitZone.roadName} • ${limitZone.speedLimitKmh} km/h"
+                }
             )
         }
 
-        // ── Layer 3: Ghana Default ──
-        val standardLimit = if (currentSpeedKmh >= 65f) 80 else 50
-        val areaType = if (standardLimit == 80) "Highway" else "Urban"
+        // ── Layer 3: Unmapped road fallback ──
         return CameraDetectionResult(
             isAutoDetectActive = true,
             activeZone = null,
@@ -1071,9 +1098,9 @@ object SpeedCameraDetector {
             isMovingTowardsCamera = false,
             hasCameraAhead = false,
             detectedRoadName = null,
-            areaType = areaType,
-            recommendedLimitKmh = standardLimit,
-            statusDescription = "Auto-Detect: Ghana $areaType ($standardLimit km/h)"
+            areaType = "Unmapped",
+            recommendedLimitKmh = manualLimitKmh,
+            statusDescription = "No mapped road limit; using selected limit ($manualLimitKmh km/h)"
         )
     }
 
@@ -1082,10 +1109,10 @@ object SpeedCameraDetector {
      *
      * Direction logic:
      * - With GPS bearing + speed ≥ 10 km/h: requires camera to be within a 70° forward cone.
-     *   Moving-away suppression: angle > 110° with distance > 300m → skip (no warning).
-     * - Close-proximity override: within 300m always warns regardless of direction (safety buffer
+     *   Moving-away suppression: angle > 110° → skip unless within the close-proximity override.
+     * - Close-proximity override: within 50m warns regardless of direction (safety buffer
      *   for roundabouts, U-turns, or congested intersections).
-     * - No bearing data (stationary, GPS not locked): only warns within 300m.
+     * - No bearing data (stationary, GPS not locked): only warns within 75m.
      *
      * Returns Triple(zone, distance, isMovingTowards) or null if no approaching zone found.
      */
@@ -1102,7 +1129,7 @@ object SpeedCameraDetector {
             probeLocation.longitude = zone.longitude
 
             val distance = currentLocation.distanceTo(probeLocation)
-            if (distance > zone.radiusMeters) continue
+            if (distance > minOf(zone.radiusMeters, CAMERA_ALERT_DISTANCE_METERS)) continue
 
             val approaching: Boolean = if (hasHeading) {
                 val bearingToCamera = currentLocation.bearingTo(probeLocation)
@@ -1112,12 +1139,12 @@ object SpeedCameraDetector {
 
                 when {
                     angleDiff <= 70f -> true          // Camera is in the forward 70° cone — approaching
-                    distance <= 300f -> true           // Very close: warn regardless of angle (safety override)
+                    distance <= CAMERA_DIRECTION_OVERRIDE_DISTANCE_METERS -> true // Very close: warn regardless of angle
                     else -> false                      // Moving away or perpendicular — suppress warning
                 }
             } else {
                 // No heading data: only warn within close proximity to avoid false alarms
-                distance <= 300f
+                distance <= CAMERA_ALERT_DISTANCE_METERS
             }
 
             if (approaching && distance < minDistance) {
@@ -1149,5 +1176,21 @@ object SpeedCameraDetector {
         }
 
         return closestZone
+    }
+
+    private fun findOpenStreetMapSpeedLimit(
+        currentLocation: Location,
+        currentSpeedKmh: Float
+    ): MatchedRoadSpeedLimit? {
+        val matcher = openStreetMapMatcher ?: return null
+        val accuracy = if (currentLocation.hasAccuracy()) currentLocation.accuracy else null
+        val bearing = if (currentLocation.hasBearing()) currentLocation.bearing else null
+        return matcher.findMatch(
+            latitude = currentLocation.latitude,
+            longitude = currentLocation.longitude,
+            accuracyMeters = accuracy,
+            bearingDegrees = bearing,
+            speedKmh = currentSpeedKmh
+        )
     }
 }

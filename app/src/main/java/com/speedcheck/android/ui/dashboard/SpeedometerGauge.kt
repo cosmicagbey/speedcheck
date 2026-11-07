@@ -62,7 +62,7 @@ fun SpeedometerGauge(
 ) {
     val animatedSpeed by animateFloatAsState(
         targetValue = currentSpeedKmh.coerceIn(0f, maxGaugeSpeed),
-        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
         label = "speedAnimation"
     )
 
@@ -199,7 +199,7 @@ fun SpeedometerGauge(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "${currentSpeedKmh.toInt()}",
+                text = "${animatedSpeed.toInt()}",
                 fontSize = 80.sp,
                 fontWeight = FontWeight.Black,
                 color = animatedColor.copy(alpha = pulseAlpha),

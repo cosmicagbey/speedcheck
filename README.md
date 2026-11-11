@@ -52,11 +52,11 @@ No download or installation required! Anyone on iOS (Safari) or Android can use 
 - **Camera Voice Prompt Toggle**: Enable or disable camera voice prompts in the Location / Known Speed Camera settings. Speed-limit warnings remain active when camera prompts are off.
 - **GPS Speed Filtering**: The web app requires accurate, consecutive position-supported movement, rejects stale or poor-accuracy fixes, and limits acceleration spikes before updating the speedometer.
 - **One-Touch Toggle**: Easily switch between **Auto-Detect** mode and **Manual** mode with a single tap on the Dashboard.
-- **Mapped Road Speed Limits**: Uses explicit OpenStreetMap speed limits on major road types only when GPS accuracy and road geometry support a confident match. Conditional limits, direction-specific limits, and ambiguous matches are excluded; unmapped roads continue using the existing fallback.
+- **Mapped Road Speed Limits**: Uses explicit OpenStreetMap speed limits on major road types only when GPS accuracy and road geometry support a confident match. Tagged schools, playgrounds, health facilities near mapped crossings, worship places, markets, and shopping centres use a conservative 30 km/h limit. Mapped built-up areas are capped at 50 km/h; otherwise automatic detection falls back to 30 km/h unless an explicit road limit is confidently matched.
 
-Road-limit data is an OpenStreetMap-derived Ghana extract (snapshot: 2026-11-06), © OpenStreetMap contributors, licensed under the [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Coverage is incomplete and is not an official legal source; always follow posted signs. OpenStreetMap supplied no fixed speed-camera features for Ghana in the queried data, so camera locations remain separate from this road-limit dataset.
+Road-limit and area data is an OpenStreetMap-derived Ghana extract (snapshot: 2026-11-10), © OpenStreetMap contributors, licensed under the [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Coverage is incomplete and is not an official legal source; always follow posted signs. OpenStreetMap supplied no fixed speed-camera features for Ghana in the queried data, so camera locations remain separate from this dataset.
 
-Automatic detection starts with a **30 km/h** fallback until a confident location-based limit is available. Previously selected fallback limits are preserved.
+Automatic detection starts with a **30 km/h** fallback until a confident location-based limit is available. The manually selected speed limit is used only when automatic detection is turned off.
 
 ### 2. 🗣️ Proactive Voice Alerts (Text-to-Speech)
 - **Early Approaching Alert**: Warns you *before* reaching the speed limit so you don't accidentally get ticketed:
@@ -131,8 +131,7 @@ The output APK will be generated at `app/build/outputs/apk/debug/app-debug.apk`.
 | :--- | :--- |
 | `ACCESS_FINE_LOCATION` | Required for accurate GPS vehicle speed calculation. |
 | `ACCESS_COARSE_LOCATION` | Fallback network location. |
-| `ACCESS_BACKGROUND_LOCATION` | Allows tracking speed and giving voice warnings while screen is off. |
-| `FOREGROUND_SERVICE` & `FOREGROUND_SERVICE_LOCATION` | Keeps the speed monitoring service alive in the background. |
+| `FOREGROUND_SERVICE` & `FOREGROUND_SERVICE_LOCATION` | Keeps the speed monitoring service alive in the background with an ongoing status notification while driving. |
 | `POST_NOTIFICATIONS` | Displays the ongoing speed status notification and heads-up warnings. |
 | `RECEIVE_BOOT_COMPLETED` | Automatically resumes speed monitoring when device reboots (if enabled). |
 | `WAKE_LOCK` | Prevents the CPU from sleeping during active driving sessions. |

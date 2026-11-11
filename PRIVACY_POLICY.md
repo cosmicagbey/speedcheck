@@ -22,8 +22,8 @@ This policy describes the Android app and the SpeedCheck web app. SpeedCheck doe
 
 To provide its core safety features, SpeedCheck requires specific Android system permissions:
 
-### A. Location Permissions (Fine, Coarse & Background Location)
-* **Permissions**: `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`
+### A. Location Permissions (Fine & Coarse Location)
+* **Permissions**: `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`
 * **Purpose**:
   * To calculate your instantaneous vehicle speed in kilometers per hour (km/h) via GPS.
   * To detect whether you are traveling toward designated speed camera enforcement corridors (e.g., N1 Highway, Borteyman Sports Complex, Kawukudi, Kanda Highway).

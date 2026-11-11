@@ -3,6 +3,7 @@ package com.speedcheck.android.service
 import com.speedcheck.android.model.MatchedRoadSpeedLimit
 import com.speedcheck.android.model.RoadCoordinate
 import com.speedcheck.android.model.RoadSpeedLimitFeature
+import com.speedcheck.android.model.SafetySpeedZone
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -12,7 +13,10 @@ import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.sin
 
-class OpenStreetMapSpeedLimitMatcher(features: List<RoadSpeedLimitFeature>) {
+class OpenStreetMapSpeedLimitMatcher(
+    features: List<RoadSpeedLimitFeature>,
+    safetyZones: List<SafetySpeedZone> = emptyList()
+) {
     private data class IndexedSegment(
         val index: Int,
         val feature: RoadSpeedLimitFeature,
@@ -28,6 +32,7 @@ class OpenStreetMapSpeedLimitMatcher(features: List<RoadSpeedLimitFeature>) {
 
     private val segments = mutableListOf<IndexedSegment>()
     private val grid = HashMap<Long, MutableList<IndexedSegment>>()
+    private val safetyGrid = HashMap<Long, MutableList<SafetySpeedZone>>()
 
     val roadCount: Int
     val segmentCount: Int
@@ -62,6 +67,29 @@ class OpenStreetMapSpeedLimitMatcher(features: List<RoadSpeedLimitFeature>) {
                             grid.getOrPut(cellKey(latitudeCell, longitudeCell)) { mutableListOf() } += segment
                         }
                     }
+
+                }
+            }
+        }
+
+        safetyZones.forEach { zone ->
+            if (!zone.latitude.isFinite() || zone.latitude !in -90.0..90.0 ||
+                !zone.longitude.isFinite() || zone.longitude !in -180.0..180.0 ||
+                !zone.radiusMeters.isFinite() || zone.radiusMeters <= 0.0 ||
+                zone.category !in SUPPORTED_ZONE_CATEGORIES
+            ) {
+                return@forEach
+            }
+
+            val latitudeRadius = zone.radiusMeters / METERS_PER_DEGREE
+            val longitudeRadius = latitudeRadius / cos(zone.latitude * DEGREES_TO_RADIANS)
+            val minLatitudeCell = cellFor(zone.latitude - latitudeRadius)
+            val maxLatitudeCell = cellFor(zone.latitude + latitudeRadius)
+            val minLongitudeCell = cellFor(zone.longitude - longitudeRadius)
+            val maxLongitudeCell = cellFor(zone.longitude + longitudeRadius)
+            for (latitudeCell in minLatitudeCell..maxLatitudeCell) {
+                for (longitudeCell in minLongitudeCell..maxLongitudeCell) {
+                    safetyGrid.getOrPut(cellKey(latitudeCell, longitudeCell)) { mutableListOf() } += zone
                 }
             }
         }
@@ -132,6 +160,55 @@ class OpenStreetMapSpeedLimitMatcher(features: List<RoadSpeedLimitFeature>) {
         )
     }
 
+    fun findSafetyZone(
+        latitude: Double,
+        longitude: Double,
+        accuracyMeters: Float?
+    ): SafetySpeedZone? {
+        if (!latitude.isFinite() || !longitude.isFinite() ||
+            latitude !in -90.0..90.0 || longitude !in -180.0..180.0
+        ) {
+            return null
+        }
+        val accuracy = accuracyMeters?.takeIf { it.isFinite() && it >= 0f } ?: return null
+        if (accuracy > MAX_LOCATION_ACCURACY_METERS) return null
+
+        val zones = safetyGrid[cellKey(cellFor(latitude), cellFor(longitude))] ?: return null
+        val checkedZones = HashSet<String>()
+        var closestSafety: SafetySpeedZone? = null
+        var closestSafetyDistance = Double.MAX_VALUE
+        var closestBuiltUp: SafetySpeedZone? = null
+        var closestBuiltUpDistance = Double.MAX_VALUE
+
+        for (zone in zones) {
+            if (!checkedZones.add(zone.id)) continue
+            val distance = distanceToZoneMeters(latitude, longitude, zone)
+            if (distance > zone.radiusMeters + accuracy) continue
+            if (zone.category == BUILT_UP_CATEGORY) {
+                if (distance < closestBuiltUpDistance) {
+                    closestBuiltUp = zone
+                    closestBuiltUpDistance = distance
+                }
+            } else if (distance < closestSafetyDistance) {
+                closestSafety = zone
+                closestSafetyDistance = distance
+            }
+        }
+        return closestSafety ?: closestBuiltUp
+    }
+
+    private fun distanceToZoneMeters(
+        latitude: Double,
+        longitude: Double,
+        zone: SafetySpeedZone
+    ): Double {
+        val longitudeScale = METERS_PER_DEGREE * cos(latitude * DEGREES_TO_RADIANS)
+        return hypot(
+            (zone.latitude - latitude) * METERS_PER_DEGREE,
+            (zone.longitude - longitude) * longitudeScale
+        )
+    }
+
     private fun distanceToSegmentMeters(
         latitude: Double,
         longitude: Double,
@@ -196,6 +273,9 @@ class OpenStreetMapSpeedLimitMatcher(features: List<RoadSpeedLimitFeature>) {
         private const val MAX_LOCATION_ACCURACY_METERS = 15f
         private const val MIN_HEADING_SPEED_KMH = 10f
         private const val MAX_HEADING_DIFFERENCE_DEGREES = 55.0
+        private const val BUILT_UP_CATEGORY = "built_up"
+        private val SUPPORTED_ZONE_CATEGORIES =
+            setOf("school", "playground", "health", "worship", "market", BUILT_UP_CATEGORY)
         private val SUPPORTED_HIGHWAYS = setOf(
             "motorway",
             "motorway_link",

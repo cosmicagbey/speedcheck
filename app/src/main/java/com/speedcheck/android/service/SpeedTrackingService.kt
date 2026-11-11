@@ -281,13 +281,7 @@ class SpeedTrackingService : Service() {
         // Calculate raw GPS speed in km/h
         val rawSpeedKmh = calculateSpeedKmh(location)
 
-        // Apply speedometer offset calibration: aligns GPS reading with the vehicle's instrument
-        // cluster. The offset is set by the user in Settings (range: -15 to +15 km/h).
-        val speedKmh = if (rawSpeedKmh > 0f) {
-            (rawSpeedKmh + currentPreferences.speedometerOffsetKmh).coerceAtLeast(0f)
-        } else {
-            0f
-        }
+        val speedKmh = rawSpeedKmh
         _currentSpeedFlow.value = speedKmh
 
         // Update Trip Statistics

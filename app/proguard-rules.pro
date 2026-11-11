@@ -34,18 +34,12 @@
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
 
-# Google Play Services Location
--keep class com.google.android.gms.location.** { *; }
--keep interface com.google.android.gms.location.** { *; }
--dontwarn com.google.android.gms.**
-
-# Google Play Core In-App Updates
--keep class com.google.android.play.core.** { *; }
--dontwarn com.google.android.play.core.**
-
-# Android TextToSpeech
--keep class android.speech.tts.** { *; }
-
-# App Data Models
--keep class com.speedcheck.android.model.** { *; }
--keep class com.speedcheck.android.data.** { *; }
+# Dependency keep rules are supplied by their libraries. App models and data
+# classes are statically referenced and can be optimized and obfuscated by R8.
+# These enum names are persisted in DataStore and SQLite, so keep their constants.
+-keepclassmembers enum com.speedcheck.android.data.AlertMode {
+    *;
+}
+-keepclassmembers enum com.speedcheck.android.model.SpeedAlertStatus {
+    *;
+}

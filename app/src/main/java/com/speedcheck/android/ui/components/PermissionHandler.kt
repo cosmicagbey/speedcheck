@@ -12,8 +12,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -29,7 +27,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 
 /**
- * Checks and manages Fine Location, Background Location, and Notification permissions.
+ * Checks and manages Location and Notification permissions.
+ * Background driving tracking is powered by a Foreground Service with an ongoing notification,
+ * so ACCESS_BACKGROUND_LOCATION is not required.
  */
 @Composable
 fun PermissionHandler(
@@ -37,11 +37,10 @@ fun PermissionHandler(
 ) {
     val context = LocalContext.current
 
-    var showBackgroundExplanationDialog by remember { mutableStateOf(false) }
     var showGpsDisabledDialog by remember { mutableStateOf(false) }
     var showSettingsRationaleDialog by remember { mutableStateOf(false) }
 
-    // Launcher for Foreground Location and Notifications
+    // Launcher for Location and Notifications
     val foregroundPermissionsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -49,32 +48,9 @@ fun PermissionHandler(
         val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
 
         if (fineLocationGranted || coarseLocationGranted) {
-            // Next check Background Location on Android 10+
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val hasBackground = ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.ACCESS_BACKGROUND_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
-
-                if (!hasBackground) {
-                    showBackgroundExplanationDialog = true
-                } else {
-                    onPermissionsGranted()
-                }
-            } else {
-                onPermissionsGranted()
-            }
+            onPermissionsGranted()
         } else {
             showSettingsRationaleDialog = true
-        }
-    }
-
-    // Launcher for Background Location (must be requested separately on Android 11+)
-    val backgroundPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            onPermissionsGranted()
         }
     }
 
@@ -82,45 +58,10 @@ fun PermissionHandler(
         checkAndRequestPermissions(
             context = context,
             onGpsDisabled = { showGpsDisabledDialog = true },
-            onRequestForeground = { permissions ->
+            onRequestPermissions = { permissions ->
                 foregroundPermissionsLauncher.launch(permissions)
             },
-            onRequestBackground = {
-                showBackgroundExplanationDialog = true
-            },
             onAllGranted = onPermissionsGranted
-        )
-    }
-
-    // Dialog: Explain why Background Location ("Allow all the time") is required
-    if (showBackgroundExplanationDialog) {
-        AlertDialog(
-            onDismissRequest = { showBackgroundExplanationDialog = false },
-            icon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-            title = { Text("Background Location Required") },
-            text = {
-                Text(
-                    "SpeedCheck runs silently in the background while you drive, even when your screen is locked or you are using Google Maps.\n\n" +
-                            "Please choose 'Allow all the time' in the next prompt to ensure reliable voice speed alerts."
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showBackgroundExplanationDialog = false
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-                        }
-                    }
-                ) {
-                    Text("Grant Permission")
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showBackgroundExplanationDialog = false }) {
-                    Text("Later")
-                }
-            }
         )
     }
 
@@ -185,8 +126,7 @@ fun PermissionHandler(
 private fun checkAndRequestPermissions(
     context: Context,
     onGpsDisabled: () -> Unit,
-    onRequestForeground: (Array<String>) -> Unit,
-    onRequestBackground: () -> Unit,
+    onRequestPermissions: (Array<String>) -> Unit,
     onAllGranted: () -> Unit
 ) {
     // 1. Check if GPS provider is enabled
@@ -196,7 +136,7 @@ private fun checkAndRequestPermissions(
         onGpsDisabled()
     }
 
-    // 2. Check Foreground Location Permissions
+    // 2. Check Location Permissions
     val hasFine = ContextCompat.checkSelfPermission(
         context,
         Manifest.permission.ACCESS_FINE_LOCATION
@@ -222,20 +162,8 @@ private fun checkAndRequestPermissions(
     }
 
     if (permissionsToRequest.isNotEmpty()) {
-        onRequestForeground(permissionsToRequest.toTypedArray())
+        onRequestPermissions(permissionsToRequest.toTypedArray())
         return
-    }
-
-    // 3. Check Background Location on Android 10+
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        val hasBackground = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_BACKGROUND_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!hasBackground) {
-            onRequestBackground()
-            return
-        }
     }
 
     onAllGranted()

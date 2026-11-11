@@ -1,12 +1,6 @@
 package com.speedcheck.android.model
 
-/**
- * Represents a named road segment in Ghana with its legal speed limit.
- * These legacy point zones provide approximate limits when no confident
- * OpenStreetMap road match is available.
- *
- * OpenStreetMap road matches and camera-zone limits may take precedence.
- */
+/** Common display information for a location-based speed limit. */
 interface SpeedLimitInfo {
     val id: String
     val roadName: String
@@ -14,6 +8,7 @@ interface SpeedLimitInfo {
     val areaType: String
 }
 
+/** A mapped safety or built-up-area speed limit. */
 data class SpeedLimitZone(
     override val id: String,
     override val roadName: String,
@@ -24,6 +19,7 @@ data class SpeedLimitZone(
     override val areaType: String = "Urban"
 ) : SpeedLimitInfo
 
+/** An explicit OpenStreetMap speed limit matched to road geometry. */
 data class MatchedRoadSpeedLimit(
     override val id: String,
     override val roadName: String,
@@ -42,4 +38,13 @@ data class RoadSpeedLimitFeature(
     val highway: String,
     val speedLimitKmh: Int,
     val points: List<RoadCoordinate>
+)
+
+data class SafetySpeedZone(
+    val id: String,
+    val name: String,
+    val category: String,
+    val latitude: Double,
+    val longitude: Double,
+    val radiusMeters: Double
 )

@@ -2,6 +2,9 @@ package com.speedcheck.android
 
 import com.speedcheck.android.model.RoadCoordinate
 import com.speedcheck.android.model.RoadSpeedLimitFeature
+import com.speedcheck.android.model.SafetySpeedZone
+import com.speedcheck.android.model.MatchedRoadSpeedLimit
+import com.speedcheck.android.service.AutomaticSpeedLimitPolicy
 import com.speedcheck.android.service.OpenStreetMapSpeedLimitMatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -122,6 +125,46 @@ class OpenStreetMapSpeedLimitMatcherTest {
 
         assertEquals(1, matcher.roadCount)
         assertEquals(80, match?.speedLimitKmh)
+    }
+
+    @Test
+    fun safetyZonesTakePriorityOverBuiltUpZones() {
+        val matcher = OpenStreetMapSpeedLimitMatcher(
+            emptyList(),
+            listOf(
+                SafetySpeedZone("town", "Mapped town", "built_up", 5.0, 0.0, 500.0),
+                SafetySpeedZone("school", "Mapped school", "school", 5.0, 0.0, 200.0)
+            )
+        )
+
+        val match = matcher.findSafetyZone(5.0, 0.0, 5f)
+
+        assertEquals("school", match?.id)
+    }
+
+    @Test
+    fun safetyZoneMatchingRejectsPoorAccuracyAndUnknownAreas() {
+        val matcher = OpenStreetMapSpeedLimitMatcher(
+            emptyList(),
+            listOf(SafetySpeedZone("town", "Mapped town", "built_up", 5.0, 0.0, 500.0))
+        )
+
+        assertNull(matcher.findSafetyZone(5.0, 0.0, 16f))
+        assertNull(matcher.findSafetyZone(5.02, 0.0, 5f))
+    }
+
+    @Test
+    fun automaticLimitPolicyUsesConservativeAreaRules() {
+        val highwayLimit = MatchedRoadSpeedLimit("road", "Highway", 100, "Highway")
+        val urbanLimit = MatchedRoadSpeedLimit("urban", "Urban road", 30, "Urban")
+        val school = SafetySpeedZone("school", "School", "school", 5.0, 0.0, 200.0)
+        val town = SafetySpeedZone("town", "Town", "built_up", 5.0, 0.0, 500.0)
+
+        assertEquals(30, AutomaticSpeedLimitPolicy.resolve(highwayLimit, school).limitKmh)
+        assertEquals(50, AutomaticSpeedLimitPolicy.resolve(highwayLimit, town).limitKmh)
+        assertEquals(30, AutomaticSpeedLimitPolicy.resolve(urbanLimit, town).limitKmh)
+        assertEquals(30, AutomaticSpeedLimitPolicy.resolve(null, null).limitKmh)
+        assertEquals(100, AutomaticSpeedLimitPolicy.resolve(highwayLimit, null).limitKmh)
     }
 
     private fun road(

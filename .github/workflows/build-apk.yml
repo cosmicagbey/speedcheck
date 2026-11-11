@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Existing version tag to build and publish (for example, v1.0.8)"
+        description: "Existing version tag to build and publish (for example, v1.0.0-build10)"
         required: false
         type: string
 

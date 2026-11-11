@@ -79,7 +79,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.speedcheck.android.data.AlertMode
@@ -604,55 +603,6 @@ fun SettingsScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Speedometer Offset Calibration Slider
-                    val offset = userPreferences.speedometerOffsetKmh
-                    val offsetDisplay = when {
-                        offset > 0 -> "+$offset km/h"
-                        offset < 0 -> "$offset km/h"
-                        else -> "0 km/h (Exact GPS)"
-                    }
-                    Text(
-                        text = "Speedometer Offset Calibration",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        maxLines = 1,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Align app speed with your vehicle's instrument cluster. If car speedometer shows 80 while app shows 75, set +5.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = offsetDisplay,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (offset != 0) GhanaGold else SpeedSafeGreen,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Slider(
-                        value = offset.toFloat(),
-                        onValueChange = { newVal ->
-                            scope.launch { repository.updateSpeedometerOffset(kotlin.math.round(newVal).toInt()) }
-                        },
-                        valueRange = -15f..15f,
-                        steps = 29,
-                        colors = SliderDefaults.colors(
-                            thumbColor = if (offset != 0) GhanaGold else SpeedSafeGreen,
-                            activeTrackColor = if (offset != 0) GhanaGold else SpeedSafeGreen
-                        )
-                    )
                 }
             }
 
@@ -899,7 +849,7 @@ private fun InAppUpdateCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "SpeedCheck v1.0.8",
+                            text = "SpeedCheck v1.0.0",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )

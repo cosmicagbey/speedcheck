@@ -4,19 +4,21 @@ import android.content.res.AssetManager
 import android.util.JsonReader
 import com.speedcheck.android.model.RoadCoordinate
 import com.speedcheck.android.model.RoadSpeedLimitFeature
+import com.speedcheck.android.model.SafetySpeedZone
 import java.io.IOException
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
 
 object OpenStreetMapSpeedLimitData {
     private const val ASSET_NAME = "ghana_speed_limits.json"
-    private const val SUPPORTED_SCHEMA_VERSION = 1
+    private const val SUPPORTED_SCHEMA_VERSION = 2
     private const val REQUIRED_LICENSE = "Open Data Commons Open Database License (ODbL) v1.0"
 
     fun load(assetManager: AssetManager): OpenStreetMapSpeedLimitMatcher {
         var schemaVersion: Int? = null
         var license: String? = null
         var features: List<RoadSpeedLimitFeature>? = null
+        var safetyZones: List<SafetySpeedZone>? = null
 
         JsonReader(InputStreamReader(assetManager.open(ASSET_NAME), StandardCharsets.UTF_8)).use { reader ->
             reader.beginObject()
@@ -25,6 +27,7 @@ object OpenStreetMapSpeedLimitData {
                     "schemaVersion" -> schemaVersion = reader.nextInt()
                     "license" -> license = reader.nextString()
                     "ways" -> features = readFeatures(reader)
+                    "safetyZones" -> safetyZones = readSafetyZones(reader)
                     else -> reader.skipValue()
                 }
             }
@@ -39,11 +42,62 @@ object OpenStreetMapSpeedLimitData {
         }
 
         val roadFeatures = features ?: throw IOException("The OSM speed-limit dataset has no road data")
-        val matcher = OpenStreetMapSpeedLimitMatcher(roadFeatures)
+        val areaZones = safetyZones ?: throw IOException("The OSM speed-limit dataset has no safety-zone data")
+        val matcher = OpenStreetMapSpeedLimitMatcher(roadFeatures, areaZones)
         if (matcher.roadCount == 0) {
             throw IOException("The OSM speed-limit dataset contains no supported road segments")
         }
         return matcher
+    }
+
+    private fun readSafetyZones(reader: JsonReader): List<SafetySpeedZone> {
+            val zones = mutableListOf<SafetySpeedZone>()
+            reader.beginArray()
+            while (reader.hasNext()) {
+                var id: String? = null
+                var name = ""
+                var category: String? = null
+                var latitude: Double? = null
+                var longitude: Double? = null
+                var radiusMeters: Double? = null
+
+                reader.beginObject()
+                while (reader.hasNext()) {
+                    when (reader.nextName()) {
+                        "id" -> id = reader.nextString()
+                        "name" -> name = reader.nextString()
+                        "category" -> category = reader.nextString()
+                        "latitude" -> latitude = reader.nextDouble()
+                        "longitude" -> longitude = reader.nextDouble()
+                        "radiusMeters" -> radiusMeters = reader.nextDouble()
+                        else -> reader.skipValue()
+                    }
+                }
+                reader.endObject()
+
+                val zoneId = id ?: throw IOException("An OSM safety zone is missing its ID")
+                val zoneCategory = category ?: throw IOException("OSM safety zone $zoneId is missing its category")
+                val zoneLatitude = latitude ?: throw IOException("OSM safety zone $zoneId is missing its latitude")
+                val zoneLongitude = longitude ?: throw IOException("OSM safety zone $zoneId is missing its longitude")
+                val zoneRadius = radiusMeters ?: throw IOException("OSM safety zone $zoneId is missing its radius")
+                if (zoneCategory !in SUPPORTED_ZONE_CATEGORIES ||
+                    !zoneLatitude.isFinite() || zoneLatitude !in -90.0..90.0 ||
+                    !zoneLongitude.isFinite() || zoneLongitude !in -180.0..180.0 ||
+                    !zoneRadius.isFinite() || zoneRadius !in 1.0..10_000.0
+                ) {
+                    throw IOException("OSM safety zone $zoneId contains invalid data")
+                }
+                zones += SafetySpeedZone(
+                    id = zoneId,
+                    name = name,
+                    category = zoneCategory,
+                    latitude = zoneLatitude,
+                    longitude = zoneLongitude,
+                    radiusMeters = zoneRadius
+                )
+            }
+            reader.endArray()
+            return zones
     }
 
     private fun readFeatures(reader: JsonReader): List<RoadSpeedLimitFeature> {
@@ -122,4 +176,7 @@ object OpenStreetMapSpeedLimitData {
         reader.endArray()
         return points
     }
+
+    private val SUPPORTED_ZONE_CATEGORIES =
+        setOf("school", "playground", "health", "worship", "market", "built_up")
 }

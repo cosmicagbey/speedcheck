@@ -1,7 +1,7 @@
 # Privacy Policy for SpeedCheck
 
-**Last Updated:** November 6, 2026
-**Effective Date:** November 6, 2026
+**Last Updated:** November 11, 2026
+**Effective Date:** November 11, 2026
 
 Thank you for choosing **SpeedCheck** ("we", "our", or "the App"). SpeedCheck is a road safety and speed awareness application designed to assist drivers in Ghana with real-time speed monitoring and automated speed camera zone alerts.
 

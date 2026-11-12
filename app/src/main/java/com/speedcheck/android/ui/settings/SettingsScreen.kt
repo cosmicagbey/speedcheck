@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -126,7 +127,7 @@ fun SettingsScreen(
     var isCameraListExpanded by remember { mutableStateOf(false) }
 
     val presetLimits = listOf(30, 50, 80, 100, 120)
-    val cooldownOptions = listOf(10, 15, 20, 30)
+    val cooldownOptions = listOf(10, 15, 20, 30, 60)
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -526,7 +527,10 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    ) {
                         cooldownOptions.forEach { seconds ->
                             FilterChip(
                                 selected = userPreferences.alertCooldownSeconds == seconds,
@@ -555,7 +559,7 @@ fun SettingsScreen(
                                     rate = userPreferences.speechRate,
                                     pitch = userPreferences.speechPitch
                                 )
-                                ttsManager.speak("Speed cameras ahead, slow down. You are about to cross the speed limit, slow down.")
+                                ttsManager.speak("Speed cameras ahead, slow down. You have crossed the speed limit, slow down.")
                             }
                         },
                         modifier = Modifier.fillMaxWidth()

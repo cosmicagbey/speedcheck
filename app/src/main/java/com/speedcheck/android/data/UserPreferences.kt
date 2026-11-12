@@ -53,8 +53,8 @@ data class UserPreferences(
     /** TTS speech pitch: 0.8f (deeper) to 1.3f (higher pitch). */
     val speechPitch: Float = 1.0f,
 
-    /** Cooldown interval between repeated "over limit" alerts in seconds. */
-    val alertCooldownSeconds: Int = 15,
+    /** Cooldown interval between repeated "over limit" alerts in seconds. Default is 30s. */
+    val alertCooldownSeconds: Int = 30,
 
     /** Whether background monitoring service is currently toggled on by user. */
     val monitoringEnabled: Boolean = false,

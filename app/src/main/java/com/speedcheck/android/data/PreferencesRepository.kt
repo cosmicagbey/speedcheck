@@ -73,7 +73,7 @@ class PreferencesRepository private constructor(private val context: Context) {
                 voiceGender = preferences[PreferencesKeys.VOICE_GENDER] ?: "FEMALE",
                 speechRate = preferences[PreferencesKeys.SPEECH_RATE] ?: 1.0f,
                 speechPitch = preferences[PreferencesKeys.SPEECH_PITCH] ?: 1.0f,
-                alertCooldownSeconds = preferences[PreferencesKeys.ALERT_COOLDOWN_SECONDS] ?: 15,
+                alertCooldownSeconds = preferences[PreferencesKeys.ALERT_COOLDOWN_SECONDS] ?: 30,
                 monitoringEnabled = preferences[PreferencesKeys.MONITORING_ENABLED] ?: false,
                 autoDetectSpeedLimit = preferences[PreferencesKeys.AUTO_DETECT_SPEED_LIMIT] ?: true,
                 cameraVoiceAlertsEnabled = preferences[PreferencesKeys.CAMERA_VOICE_ALERTS_ENABLED] ?: true,

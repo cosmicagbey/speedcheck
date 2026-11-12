@@ -290,6 +290,126 @@ const GHANA_SPEED_CAMERAS = [
     radiusMeters: 1500,
     description: "Frequent rotating police mobile speedcam setup where highway limit unpredictably drops to 50 km/h near Boankra.",
     isMobilePatrol: true
+  },
+  {
+    id: "pokuase_interchange",
+    name: "Pokuase Interchange (N6 / Awoshie Link)",
+    roadName: "Accra - Nsawam Highway (N6) / Pokuase Interchange",
+    latitude: 5.6850,
+    longitude: -0.2791,
+    speedLimitKmh: 80,
+    radiusMeters: 1400,
+    description: "Automated speed and traffic enforcement camera monitoring the 4-tier Pokuase Interchange on N6."
+  },
+  {
+    id: "tema_motorway_toll_accra",
+    name: "Tema Motorway (Accra Toll Plaza / Action Chapel)",
+    roadName: "Accra - Tema Motorway",
+    latitude: 5.6200,
+    longitude: -0.1650,
+    speedLimitKmh: 80,
+    radiusMeters: 1400,
+    description: "Automated speed camera monitoring Motorway entrance and toll plaza corridor near Action Chapel."
+  },
+  {
+    id: "tema_motorway_toll_tema",
+    name: "Tema Motorway (Tema Toll Plaza / Ashaiman Overpass)",
+    roadName: "Accra - Tema Motorway",
+    latitude: 5.6780,
+    longitude: -0.0250,
+    speedLimitKmh: 80,
+    radiusMeters: 1400,
+    description: "Automated camera enforcing speed approaching the Tema toll booth and Ashaiman overpass."
+  },
+  {
+    id: "spintex_cocacola",
+    name: "Spintex Road (Coca-Cola Roundabout)",
+    roadName: "Spintex Road",
+    latitude: 5.6436,
+    longitude: -0.1111,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "Automated speed and red-light camera monitoring Coca-Cola Roundabout on Spintex Road."
+  },
+  {
+    id: "spintex_basket_junction",
+    name: "Spintex Road (Basket Junction / Manet)",
+    roadName: "Spintex Road",
+    latitude: 5.6360,
+    longitude: -0.0980,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "TraffiTech-GH camera monitoring central commercial corridor at Basket Junction."
+  },
+  {
+    id: "mallam_junction",
+    name: "Mallam Junction / Weija Barrier (N1)",
+    roadName: "Accra - Cape Coast Highway (N1)",
+    latitude: 5.5707,
+    longitude: -0.2850,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "Automated speed and intersection camera enforcing 50 km/h bottleneck at Mallam Junction."
+  },
+  {
+    id: "kaneshie_first_light",
+    name: "Kaneshie First Light",
+    roadName: "Winneba Road",
+    latitude: 5.5689,
+    longitude: -0.2419,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "Automated red-light and speed camera monitoring Kaneshie First Light intersection."
+  },
+  {
+    id: "kwashieman_hong_kong",
+    name: "Kwashieman (Hong Kong Junction / N1)",
+    roadName: "Kwashieman Main Road / N1",
+    latitude: 5.5922,
+    longitude: -0.2679,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "Automated speed and red-light camera monitoring Hong Kong traffic light at Kwashieman."
+  },
+  {
+    id: "airport_junction_liberation",
+    name: "Airport Junction (Liberation Road / Giffard Road)",
+    roadName: "Liberation Road (N4)",
+    latitude: 5.6025,
+    longitude: -0.1794,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "TraffiTech-GH camera enforcing 50 km/h speed and traffic light compliance at Airport Junction."
+  },
+  {
+    id: "okponglo_junction",
+    name: "Okponglo Junction (Legon / N4 Corridor)",
+    roadName: "Liberation Road / Legon Bypass (N4)",
+    latitude: 5.6415,
+    longitude: -0.1776,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "Automated radar camera monitoring the N4 corridor between Tetteh Quarshie and Legon."
+  },
+  {
+    id: "ritz_junction_madina",
+    name: "Ritz Junction (Madina - Adenta N4)",
+    roadName: "Madina - Adenta Road (N4)",
+    latitude: 5.6876,
+    longitude: -0.1714,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "Automated camera enforcing speed and pedestrian safety at Ritz Junction."
+  },
+  {
+    id: "kumasi_suame_roundabout",
+    name: "Kumasi (Suame Roundabout / Mampong Road)",
+    roadName: "Mampong Road / Suame Roundabout",
+    latitude: 6.7116,
+    longitude: -1.6281,
+    speedLimitKmh: 50,
+    radiusMeters: 1200,
+    description: "Automated speed and intersection camera monitoring the Suame Roundabout hub in Kumasi."
   }
 ];
 const CAMERA_ALERT_DISTANCE_METERS = 75;
@@ -409,7 +529,7 @@ const state = {
   alertMode: localStorage.getItem('sc_alert_mode') || (localStorage.getItem('sc_voice_alerts') === 'false' ? 'MUTE' : 'SOUND'),
   voiceAlertsEnabled: localStorage.getItem('sc_voice_alerts') !== 'false',
   voiceGender: localStorage.getItem('sc_voice_gender') || 'FEMALE',
-  alertCooldownSeconds: parseInt(localStorage.getItem('sc_cooldown') || '15', 10),
+  alertCooldownSeconds: parseInt(localStorage.getItem('sc_cooldown') || '30', 10),
   approachingOffsetKmh: parseInt(localStorage.getItem('sc_buffer_offset') || '5', 10),
   isDarkMode: localStorage.getItem('sc_theme') !== 'light',
   showDualUnitsMph: localStorage.getItem('sc_dual_units_mph') === 'true',
@@ -1070,11 +1190,17 @@ function processSpeedAlerts(speedKmh, limitKmh) {
         if (state.cameraVoiceAlertsEnabled || state.alertMode !== 'SOUND') {
           triggerAlert(warnMsg);
         } else {
-          triggerAlert("You are about to cross the speed limit, slow down.");
+          const prompt = speedKmh >= limitKmh
+            ? "You have crossed the speed limit, slow down."
+            : "You are about to cross the speed limit, slow down.";
+          triggerAlert(prompt);
         }
         state.lastAlertTime = now;
         state.lastAnnouncedCameraZoneId = cameraZoneId;
         state.hasApproachingFired = true;
+        if (speedKmh >= limitKmh) {
+          state.hasExceededFired = true;
+        }
       }
     } else {
       if (state.cameraVoiceAlertsEnabled && cameraZoneId !== state.lastAnnouncedCameraZoneId) {
@@ -1088,14 +1214,26 @@ function processSpeedAlerts(speedKmh, limitKmh) {
       state.lastAnnouncedCameraZoneId = null;
     }
 
-    if (isApproachingOrExceeded) {
+    const isExceeded = speedKmh >= limitKmh;
+    const isApproaching = state.approachingAlertEnabled && speedKmh >= approachingThreshold && speedKmh < limitKmh;
+
+    if (isExceeded) {
+      if (!state.hasExceededFired || (now - (state.lastAlertTime || 0) >= cooldownMs)) {
+        triggerAlert("You have crossed the speed limit, slow down.");
+        state.lastAlertTime = now;
+        state.hasExceededFired = true;
+        state.hasApproachingFired = true;
+      }
+    } else if (isApproaching) {
+      state.hasExceededFired = false;
       if (!state.hasApproachingFired || (now - (state.lastAlertTime || 0) >= cooldownMs)) {
         triggerAlert("You are about to cross the speed limit, slow down.");
         state.lastAlertTime = now;
         state.hasApproachingFired = true;
       }
-    } else if (speedKmh < approachingThreshold - 2) {
+    } else if (!state.approachingAlertEnabled || speedKmh < approachingThreshold - 2) {
       state.hasApproachingFired = false;
+      state.hasExceededFired = false;
     }
   }
 }
@@ -1895,7 +2033,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (testVoiceBtn) {
     testVoiceBtn.addEventListener('click', () => {
       unlockAudioContext();
-      speakVoice("Speed cameras ahead, slow down. You are about to cross the speed limit, slow down.");
+      speakVoice("Speed cameras ahead, slow down. You have crossed the speed limit, slow down.");
     });
   }
 

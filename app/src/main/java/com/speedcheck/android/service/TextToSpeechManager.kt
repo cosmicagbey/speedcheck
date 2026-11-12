@@ -40,6 +40,7 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
     private var lastAlertTimeMs = 0L
     private var lastAnnouncedCameraZoneId: String? = null
     private var hasApproachingAlertFired = false
+    private var hasExceededAlertFired = false
 
     init {
         initializeEngine()
@@ -254,11 +255,19 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
                     if (cameraVoiceAlertsEnabled || alertMode != AlertMode.SOUND) {
                         dispatchAlert(warningMessage)
                     } else {
-                        dispatchAlert("You are about to cross the speed limit, slow down.")
+                        val prompt = if (currentSpeedKmh >= speedLimitKmh) {
+                            "You have crossed the speed limit, slow down."
+                        } else {
+                            "You are about to cross the speed limit, slow down."
+                        }
+                        dispatchAlert(prompt)
                     }
                     lastAlertTimeMs = currentTime
                     lastAnnouncedCameraZoneId = cameraZoneId
                     hasApproachingAlertFired = true
+                    if (currentSpeedKmh >= speedLimitKmh) {
+                        hasExceededAlertFired = true
+                    }
                 }
             } else {
                 // In camera zone AND driving safely within limit: announce once per corridor entry
@@ -274,16 +283,29 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
                 lastAnnouncedCameraZoneId = null
             }
 
-            if (isApproachingOrExceeded) {
-                // About to cross or exceeding limit outside camera zones
+            val isExceeded = currentSpeedKmh >= speedLimitKmh
+            val isApproaching = approachingAlertEnabled && currentSpeedKmh >= approachingThreshold && currentSpeedKmh < speedLimitKmh
+
+            if (isExceeded) {
+                // Exceeding speed limit
+                if (!hasExceededAlertFired || (currentTime - lastAlertTimeMs >= cooldownMs)) {
+                    dispatchAlert("You have crossed the speed limit, slow down.")
+                    lastAlertTimeMs = currentTime
+                    hasExceededAlertFired = true
+                    hasApproachingAlertFired = true
+                }
+            } else if (isApproaching) {
+                // About to cross speed limit
+                hasExceededAlertFired = false
                 if (!hasApproachingAlertFired || (currentTime - lastAlertTimeMs >= cooldownMs)) {
                     dispatchAlert("You are about to cross the speed limit, slow down.")
                     lastAlertTimeMs = currentTime
                     hasApproachingAlertFired = true
                 }
             } else if (!approachingAlertEnabled || currentSpeedKmh < (approachingThreshold - 2)) {
-                // Safely below threshold: reset approaching alert flag
+                // Safely below threshold: reset alert flags
                 hasApproachingAlertFired = false
+                hasExceededAlertFired = false
             }
         }
     }

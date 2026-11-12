@@ -35,7 +35,7 @@ class SpeedCheckUnitTest {
         assertTrue(prefs.autoDetectVehicleMovement)
         assertTrue(prefs.autoStartOnBoot)
         assertEquals("FEMALE", prefs.voiceGender)
-        assertEquals(15, prefs.alertCooldownSeconds)
+        assertEquals(30, prefs.alertCooldownSeconds)
         assertTrue(prefs.isDarkMode)
     }
 
@@ -159,7 +159,7 @@ class SpeedCheckUnitTest {
     @Test
     fun ghanaSpeedCameras_containAllRequiredLocations() {
         val cameras = SpeedCameraDetector.GHANA_SPEED_CAMERAS
-        assertEquals(28, cameras.size)
+        assertEquals(40, cameras.size)
 
         // 1. Borteyman Sports Facility T-Junction
         val borteyman = cameras.find { it.id == "borteyman_junction" }
@@ -232,9 +232,9 @@ class SpeedCheckUnitTest {
         assertEquals(40, pillar2?.speedLimitKmh)
         assertTrue(pillar2?.isMobilePatrol == true)
 
-        // Verify permanent cameras list for Settings page has exactly 5 cameras
+        // Verify permanent cameras list for Settings page has 17 fixed cameras
         val fixedCameras = cameras.filter { !it.isMobilePatrol }
-        assertEquals(5, fixedCameras.size)
+        assertEquals(17, fixedCameras.size)
     }
 
     @Test
@@ -272,7 +272,9 @@ class SpeedCheckUnitTest {
                     }
                 }
             } else {
-                if (isApproachingOrExceeded) {
+                if (speedKmh >= speedLimitKmh) {
+                    "You have crossed the speed limit, slow down."
+                } else if (isApproachingOrExceeded) {
                     "You are about to cross the speed limit, slow down."
                 } else {
                     null
@@ -302,9 +304,9 @@ class SpeedCheckUnitTest {
         assertEquals("Potential police speed camera ahead, slow down.", resolveAlertMessage(75f, limit, offset, hasCameraAhead = true, isMobilePatrol = true))
         assertEquals("Potential police speed camera ahead, slow down.", resolveAlertMessage(85f, limit, offset, hasCameraAhead = true, isMobilePatrol = true))
 
-        // Case 6: Normal road (no camera) + approaching/breaking limit
+        // Case 6: Normal road (no camera) + approaching vs exceeded limit
         assertEquals("You are about to cross the speed limit, slow down.", resolveAlertMessage(75f, limit, offset, hasCameraAhead = false))
-        assertEquals("You are about to cross the speed limit, slow down.", resolveAlertMessage(90f, limit, offset, hasCameraAhead = false))
+        assertEquals("You have crossed the speed limit, slow down.", resolveAlertMessage(90f, limit, offset, hasCameraAhead = false))
 
         // Case 7: Normal road (no camera) + driving safely (60 km/h in 80 zone)
         assertEquals(null, resolveAlertMessage(60f, limit, offset, hasCameraAhead = false))
@@ -409,10 +411,10 @@ class SpeedCheckUnitTest {
     @Test
     fun cameraList_collapsedViewLimitsToFiveItems() {
         val totalCameras = SpeedCameraDetector.GHANA_SPEED_CAMERAS
-        assertEquals(28, totalCameras.size)
+        assertEquals(40, totalCameras.size)
 
         val fixedCameras = totalCameras.filter { !it.isMobilePatrol }
-        assertEquals(5, fixedCameras.size)
+        assertEquals(17, fixedCameras.size)
 
         // Collapsed preview shows first 4 of all 28 cameras with expand toggle
         val previewList = totalCameras.take(4)

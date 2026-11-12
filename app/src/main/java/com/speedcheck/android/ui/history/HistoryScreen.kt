@@ -349,11 +349,6 @@ private fun HistoryLogCard(entry: SpeedLogEntry) {
                     )
 
                     EvidenceRow(
-                        label = "Detection Mode",
-                        value = if (entry.isAutoDetect) "Automatic Camera Radar" else "Manual Preset"
-                    )
-
-                    EvidenceRow(
                         label = "Speed Status",
                         value = entry.complianceStatus
                     )
@@ -376,7 +371,6 @@ private fun HistoryLogCard(entry: SpeedLogEntry) {
                                 Driving Speed: ${entry.speedKmh.toInt()} km/h
                                 Speed Limit: ${entry.speedLimitKmh} km/h
                                 Recorded status: ${entry.complianceStatus}
-                                Mode: ${if (entry.isAutoDetect) "Auto-Detect Camera Zone" else "Manual Limit"}
                             """.trimIndent()
 
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {

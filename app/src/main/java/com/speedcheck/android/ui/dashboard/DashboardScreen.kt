@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
@@ -34,11 +33,11 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -105,7 +104,7 @@ fun DashboardScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val repository = remember { PreferencesRepository.getInstance(context) }
-    val vibrationManager = remember { com.speedcheck.android.util.VibrationManager(context) }
+    val beepManager = remember { com.speedcheck.android.util.BeepManager(context) }
 
     // Live state collected from the foreground service
     val currentSpeed by SpeedTrackingService.currentSpeedFlow.collectAsState()
@@ -154,8 +153,8 @@ fun DashboardScreen(
                     scope.launch {
                         repository.updateAlertMode(nextMode)
                     }
-                    if (nextMode == com.speedcheck.android.data.AlertMode.VIBRATE) {
-                        vibrationManager.triggerModeSwitchTick()
+                    if (nextMode == com.speedcheck.android.data.AlertMode.BEEP) {
+                        beepManager.triggerExceededBeep()
                     }
                 },
                 onToggleTheme = onToggleTheme
@@ -490,20 +489,15 @@ private fun DashboardTopBar(
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onCycleAlertMode) {
                 val (icon, tint, desc) = when (alertMode) {
-                    com.speedcheck.android.data.AlertMode.SOUND -> Triple(
+                    com.speedcheck.android.data.AlertMode.VOICE -> Triple(
                         Icons.AutoMirrored.Filled.VolumeUp,
                         SpeedSafeGreen,
-                        "Sound Alerts Active (Tap for Vibrate)"
+                        "Voice Alerts Active (Tap for Beep)"
                     )
-                    com.speedcheck.android.data.AlertMode.VIBRATE -> Triple(
-                        Icons.Default.Vibration,
+                    com.speedcheck.android.data.AlertMode.BEEP -> Triple(
+                        Icons.Default.NotificationsActive,
                         GhanaGold,
-                        "Vibrate Alerts Active (Tap for Mute)"
-                    )
-                    com.speedcheck.android.data.AlertMode.MUTE -> Triple(
-                        Icons.AutoMirrored.Filled.VolumeOff,
-                        SpeedExceededRed,
-                        "Alerts Muted (Tap for Sound)"
+                        "Beep Alerts Active (Tap for Voice)"
                     )
                 }
                 Icon(

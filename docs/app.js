@@ -526,7 +526,13 @@ const state = {
   manualLimitKmh: parseInt(localStorage.getItem('sc_manual_limit') || '30', 10),
   autoDetectEnabled: localStorage.getItem('sc_auto_detect') !== 'false',
   cameraVoiceAlertsEnabled: localStorage.getItem('sc_camera_voice_alerts') !== 'false',
-  alertMode: localStorage.getItem('sc_alert_mode') || (localStorage.getItem('sc_voice_alerts') === 'false' ? 'MUTE' : 'SOUND'),
+  alertMode: (() => {
+    const saved = localStorage.getItem('sc_alert_mode');
+    if (saved === 'VOICE' || saved === 'BEEP') return saved;
+    if (saved === 'SOUND') return 'VOICE';
+    if (saved === 'VIBRATE') return 'BEEP';
+    return 'VOICE';
+  })(),
   voiceAlertsEnabled: localStorage.getItem('sc_voice_alerts') !== 'false',
   voiceGender: localStorage.getItem('sc_voice_gender') || 'FEMALE',
   alertCooldownSeconds: parseInt(localStorage.getItem('sc_cooldown') || '30', 10),
@@ -1004,10 +1010,26 @@ function speakVoice(text) {
   }
 }
 
+let sharedAudioCtx = null;
+function getSharedAudioContext() {
+  try {
+    if (!sharedAudioCtx && (window.AudioContext || window.webkitAudioContext)) {
+      sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch (e) {
+    return null;
+  }
+}
+
 // Play silent chime on user interaction to unlock Safari Web Audio
 function unlockAudioContext() {
   try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioCtx = getSharedAudioContext();
+    if (!audioCtx) return;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     gain.gain.value = 0.001; // silent
@@ -1018,13 +1040,64 @@ function unlockAudioContext() {
   } catch (e) {}
 }
 
-function triggerAlert(message) {
-  if (state.alertMode === 'SOUND') {
+let activeBeepTimers = [];
+
+function stopActiveBeeps() {
+  activeBeepTimers.forEach(id => clearTimeout(id));
+  activeBeepTimers = [];
+}
+
+function playSingleBeep(frequency = 880, durationSec = 0.09) {
+  try {
+    const audioCtx = getSharedAudioContext();
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + durationSec);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + durationSec);
+  } catch (e) {}
+}
+
+// 4 beeps per second for 4sec = 16 beeps (250ms interval, 90ms tone)
+function playApproachingBeep() {
+  stopActiveBeeps();
+  const totalBeeps = 16;
+  const intervalMs = 250;
+  for (let i = 0; i < totalBeeps; i++) {
+    const timerId = setTimeout(() => {
+      playSingleBeep(880, 0.09);
+    }, i * intervalMs);
+    activeBeepTimers.push(timerId);
+  }
+}
+
+// 6 fast beeps in 3 sec = 6 beeps (500ms interval, 140ms tone, higher pitch)
+function playExceededBeep() {
+  stopActiveBeeps();
+  const totalBeeps = 6;
+  const intervalMs = 500;
+  for (let i = 0; i < totalBeeps; i++) {
+    const timerId = setTimeout(() => {
+      playSingleBeep(1050, 0.14);
+    }, i * intervalMs);
+    activeBeepTimers.push(timerId);
+  }
+}
+
+function triggerAlert(message, alertType = 'APPROACHING') {
+  if (state.alertMode === 'VOICE') {
     speakVoice(message);
-  } else if (state.alertMode === 'VIBRATE') {
-    // 4 bursts across 4 seconds: [buzz 250ms, silence 750ms x 4]
-    if ('vibrate' in navigator) {
-      navigator.vibrate([250, 750, 250, 750, 250, 750, 250]);
+  } else if (state.alertMode === 'BEEP') {
+    if (alertType === 'EXCEEDED') {
+      playExceededBeep();
+    } else {
+      playApproachingBeep();
     }
   }
 }
@@ -1129,9 +1202,9 @@ function clearEvidenceLogs() {
   }
 }
 
-// 7. Unified Alert Logic (Sound / Vibrate / Mute)
+// 7. Unified Alert Logic (Voice / Beep)
 function processSpeedAlerts(speedKmh, limitKmh) {
-  if (state.alertMode === 'MUTE' || !state.isMonitoring) return;
+  if (!state.isMonitoring) return;
   if (speedKmh < MIN_VEHICLE_SPEED_KMH) return; // Suppress alerts when stationary, idle, or walking
 
   const now = Date.now();
@@ -1143,8 +1216,8 @@ function processSpeedAlerts(speedKmh, limitKmh) {
     if (elapsed < GPS_CALIBRATION_WINDOW_MS) {
       return; // Still calibrating — silent
     }
-    // Calibration complete: fire one-time announcement (only in SOUND mode)
-    if (!state.calibrationAnnouncementFired && state.alertMode === 'SOUND') {
+    // Calibration complete: fire one-time announcement (only in VOICE mode)
+    if (!state.calibrationAnnouncementFired && state.alertMode === 'VOICE') {
       let announcement;
       if (state.activeZone && state.activeZone.isMobilePatrol && state.cameraVoiceAlertsEnabled) {
         announcement = `SpeedCheck ready. Potential police speed camera corridor. Speed limit ${limitKmh} km/h.`;
@@ -1187,13 +1260,14 @@ function processSpeedAlerts(speedKmh, limitKmh) {
 
     if (isApproachingOrExceeded) {
       if ((now - (state.lastAlertTime || 0) >= cooldownMs) || cameraZoneId !== state.lastAnnouncedCameraZoneId) {
-        if (state.cameraVoiceAlertsEnabled || state.alertMode !== 'SOUND') {
-          triggerAlert(warnMsg);
+        const alertType = speedKmh >= limitKmh ? 'EXCEEDED' : 'APPROACHING';
+        if (state.cameraVoiceAlertsEnabled || state.alertMode !== 'VOICE') {
+          triggerAlert(warnMsg, alertType);
         } else {
           const prompt = speedKmh >= limitKmh
             ? "You have crossed the speed limit, slow down."
             : "You are about to cross the speed limit, slow down.";
-          triggerAlert(prompt);
+          triggerAlert(prompt, alertType);
         }
         state.lastAlertTime = now;
         state.lastAnnouncedCameraZoneId = cameraZoneId;
@@ -1204,7 +1278,9 @@ function processSpeedAlerts(speedKmh, limitKmh) {
       }
     } else {
       if (state.cameraVoiceAlertsEnabled && cameraZoneId !== state.lastAnnouncedCameraZoneId) {
-        triggerAlert(safeMsg);
+        if (state.alertMode === 'VOICE') {
+          triggerAlert(safeMsg);
+        }
         state.lastAnnouncedCameraZoneId = cameraZoneId;
         state.lastAlertTime = now;
       }
@@ -1219,7 +1295,7 @@ function processSpeedAlerts(speedKmh, limitKmh) {
 
     if (isExceeded) {
       if (!state.hasExceededFired || (now - (state.lastAlertTime || 0) >= cooldownMs)) {
-        triggerAlert("You have crossed the speed limit, slow down.");
+        triggerAlert("You have crossed the speed limit, slow down.", 'EXCEEDED');
         state.lastAlertTime = now;
         state.hasExceededFired = true;
         state.hasApproachingFired = true;
@@ -1227,7 +1303,7 @@ function processSpeedAlerts(speedKmh, limitKmh) {
     } else if (isApproaching) {
       state.hasExceededFired = false;
       if (!state.hasApproachingFired || (now - (state.lastAlertTime || 0) >= cooldownMs)) {
-        triggerAlert("You are about to cross the speed limit, slow down.");
+        triggerAlert("You are about to cross the speed limit, slow down.", 'APPROACHING');
         state.lastAlertTime = now;
         state.hasApproachingFired = true;
       }
@@ -1727,18 +1803,15 @@ function updateUI() {
     bufferVal.textContent = `${state.approachingOffsetKmh} km/h`;
   }
 
-  // Alert Mode Button Icon in Header (Sound -> Vibrate -> Mute)
+  // Alert Mode Button Icon in Header (VOICE <-> BEEP)
   const muteBtn = document.getElementById('muteBtn');
   if (muteBtn) {
-    if (state.alertMode === 'SOUND') {
-      muteBtn.innerHTML = '🔊';
-      muteBtn.title = 'Sound Alerts Active (Tap for Vibrate)';
-    } else if (state.alertMode === 'VIBRATE') {
-      muteBtn.innerHTML = '📳';
-      muteBtn.title = 'Vibration Alerts Active (Tap for Mute)';
+    if (state.alertMode === 'BEEP') {
+      muteBtn.innerHTML = '🔔';
+      muteBtn.title = 'Beep Alerts Active (Tap for Voice)';
     } else {
-      muteBtn.innerHTML = '🔇';
-      muteBtn.title = 'Alerts Muted (Tap for Sound)';
+      muteBtn.innerHTML = '🔊';
+      muteBtn.title = 'Voice Alerts Active (Tap for Beep)';
     }
   }
 
@@ -1854,18 +1927,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Alert Mode Button (Cycles: Sound -> Vibrate -> Mute -> Sound)
+  // Alert Mode Button (Cycles: Voice <-> Beep)
   const muteBtn = document.getElementById('muteBtn');
   if (muteBtn) {
     muteBtn.addEventListener('click', () => {
-      const nextMode = state.alertMode === 'SOUND' ? 'VIBRATE' : (state.alertMode === 'VIBRATE' ? 'MUTE' : 'SOUND');
+      const nextMode = state.alertMode === 'VOICE' ? 'BEEP' : 'VOICE';
       state.alertMode = nextMode;
-      state.voiceAlertsEnabled = (nextMode === 'SOUND');
-      if (nextMode === 'VIBRATE' && 'vibrate' in navigator) {
-        navigator.vibrate(50);
-      }
+      state.voiceAlertsEnabled = (nextMode === 'VOICE');
       localStorage.setItem('sc_alert_mode', nextMode);
       localStorage.setItem('sc_voice_alerts', state.voiceAlertsEnabled);
+      if (nextMode === 'BEEP') {
+        playSingleBeep(880, 0.09);
+      }
       updateUI();
     });
   }
@@ -1902,17 +1975,17 @@ document.addEventListener('DOMContentLoaded', () => {
     clearHistoryBtn.addEventListener('click', clearEvidenceLogs);
   }
 
-  // Alert Mode Chips (Settings modal)
+  // Alert Mode Chips (Settings modal: VOICE / BEEP)
   document.querySelectorAll('.mode-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const mode = chip.dataset.mode;
       state.alertMode = mode;
-      state.voiceAlertsEnabled = (mode === 'SOUND');
-      if (mode === 'VIBRATE' && 'vibrate' in navigator) {
-        navigator.vibrate(50);
-      }
+      state.voiceAlertsEnabled = (mode === 'VOICE');
       localStorage.setItem('sc_alert_mode', mode);
       localStorage.setItem('sc_voice_alerts', state.voiceAlertsEnabled);
+      if (mode === 'BEEP') {
+        playSingleBeep(880, 0.09);
+      }
       updateUI();
     });
   });
@@ -2028,12 +2101,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Test Voice in Settings
+  // Test Voice / Beep in Settings
   const testVoiceBtn = document.getElementById('testVoiceBtn');
   if (testVoiceBtn) {
     testVoiceBtn.addEventListener('click', () => {
       unlockAudioContext();
-      speakVoice("Speed cameras ahead, slow down. You have crossed the speed limit, slow down.");
+      if (state.alertMode === 'BEEP') {
+        playExceededBeep();
+      } else {
+        speakVoice("Speed cameras ahead, slow down. You have crossed the speed limit, slow down.");
+      }
     });
   }
 

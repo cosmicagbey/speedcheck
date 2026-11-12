@@ -73,7 +73,7 @@ class SpeedTrackingService : Service() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var notificationHelper: NotificationHelper
     private lateinit var ttsManager: TextToSpeechManager
-    private lateinit var vibrationManager: com.speedcheck.android.util.VibrationManager
+    private lateinit var beepManager: com.speedcheck.android.util.BeepManager
     private lateinit var preferencesRepository: PreferencesRepository
     private lateinit var speedLogRepository: SpeedLogRepository
 
@@ -116,7 +116,7 @@ class SpeedTrackingService : Service() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         notificationHelper = NotificationHelper(this)
         ttsManager = TextToSpeechManager(this)
-        vibrationManager = com.speedcheck.android.util.VibrationManager(this)
+        beepManager = com.speedcheck.android.util.BeepManager(this)
         preferencesRepository = PreferencesRepository.getInstance(this)
         speedLogRepository = SpeedLogRepository.getInstance(this)
 
@@ -227,6 +227,7 @@ class SpeedTrackingService : Service() {
     private fun stopMonitoring() {
         Log.i(TAG, "Stopping monitoring.")
         fusedLocationClient.removeLocationUpdates(locationCallback)
+        beepManager.stop()
 
         currentMonitoringState = MonitoringState.STOPPED
         _monitoringStateFlow.value = MonitoringState.STOPPED
@@ -312,13 +313,12 @@ class SpeedTrackingService : Service() {
 
         // Unified Contextual Voice & Vibration Prompts:
         // - On a known road without camera & approaching/breaking limit: "You are about to cross the speed limit, slow down"
-        // - In fixed camera zone & safe speed: "Speed cameras ahead, be careful"
-        // - In fixed camera zone & approaching/breaking limit: "Speed cameras ahead, slow down"
-        // - In mobile patrol hotspot & safe speed: "Potential police speed camera ahead, be careful"
-        // - In mobile patrol hotspot & approaching/breaking limit: "Potential police speed camera ahead, slow down"
-        // - In VIBRATE mode: short burst each second for 4 seconds in place of sound
-        if (currentPreferences.alertMode != com.speedcheck.android.data.AlertMode.MUTE &&
-            currentMonitoringState == MonitoringState.ACTIVE_MONITORING) {
+        // - In fixed camera zone & safe speed: "Speed cameras ahead, be careful" (Voice only)
+        // - In fixed camera zone & approaching/breaking limit: "Speed cameras ahead, slow down" (Voice) or beeps
+        // - In mobile patrol hotspot & safe speed: "Potential police speed camera ahead, be careful" (Voice only)
+        // - In mobile patrol hotspot & approaching/breaking limit: "Potential police speed camera ahead, slow down" (Voice) or beeps
+        // - In BEEP mode: 4 beeps/sec for 4s on buffer approaching, 6 fast beeps in 3s on exceeding limit
+        if (currentMonitoringState == MonitoringState.ACTIVE_MONITORING) {
 
             val nowMs = System.currentTimeMillis()
             val elapsedSinceStart = nowMs - gpsCalibrationStartMs
@@ -329,9 +329,9 @@ class SpeedTrackingService : Service() {
                 // correct speed limit for this area. Suppress alerts until calibrated.
                 Log.d(TAG, "GPS calibration window active (${elapsedSinceStart}ms / ${GPS_CALIBRATION_WINDOW_MS}ms). Alerts suppressed.")
             } else {
-                // Fire one-time calibration-complete announcement then resume normal alerts
+                // Fire one-time calibration-complete announcement then resume normal alerts (Voice only)
                 if (!calibrationAnnouncementFired &&
-                    currentPreferences.alertMode == com.speedcheck.android.data.AlertMode.SOUND) {
+                    currentPreferences.alertMode == com.speedcheck.android.data.AlertMode.VOICE) {
                     val zoneContext = when {
                         detectionResult.hasCameraAhead && detectionResult.isMobilePatrol &&
                             currentPreferences.cameraVoiceAlertsEnabled ->
@@ -369,8 +369,11 @@ class SpeedTrackingService : Service() {
                     isMobilePatrol = isMobilePatrol,
                     cameraVoiceAlertsEnabled = currentPreferences.cameraVoiceAlertsEnabled,
                     alertMode = currentPreferences.alertMode,
-                    onVibrateAlert = {
-                        vibrationManager.triggerAlertVibration()
+                    onBeepApproaching = {
+                        beepManager.triggerApproachingBeep()
+                    },
+                    onBeepExceeded = {
+                        beepManager.triggerExceededBeep()
                     }
                 )
             }
@@ -585,7 +588,7 @@ class SpeedTrackingService : Service() {
         Log.d(TAG, "SpeedTrackingService onDestroy")
         fusedLocationClient.removeLocationUpdates(locationCallback)
         ttsManager.shutdown()
-        vibrationManager.cancel()
+        beepManager.release()
         preferencesJob?.cancel()
         serviceScope.cancel()
         _monitoringStateFlow.value = MonitoringState.STOPPED

@@ -214,19 +214,25 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
         cameraZoneId: String? = null,
         isMobilePatrol: Boolean = false,
         cameraVoiceAlertsEnabled: Boolean = true,
-        alertMode: AlertMode = AlertMode.SOUND,
-        onVibrateAlert: (() -> Unit)? = null
+        alertMode: AlertMode = AlertMode.VOICE,
+        onBeepApproaching: (() -> Unit)? = null,
+        onBeepExceeded: (() -> Unit)? = null
     ) {
-        // Suppress voice/vibrate alerts when stationary or walking, or if muted
-        if (currentSpeedKmh < 8.0f || alertMode == AlertMode.MUTE) {
+        // Suppress alerts when stationary or walking (< 8 km/h)
+        if (currentSpeedKmh < 8.0f) {
             return
         }
 
-        fun dispatchAlert(message: String) {
+        fun dispatchAlert(message: String, isExceededAlert: Boolean) {
             when (alertMode) {
-                AlertMode.SOUND -> speak(message, TextToSpeech.QUEUE_FLUSH)
-                AlertMode.VIBRATE -> onVibrateAlert?.invoke()
-                AlertMode.MUTE -> { /* muted */ }
+                AlertMode.VOICE -> speak(message, TextToSpeech.QUEUE_FLUSH)
+                AlertMode.BEEP -> {
+                    if (isExceededAlert) {
+                        onBeepExceeded?.invoke()
+                    } else {
+                        onBeepApproaching?.invoke()
+                    }
+                }
             }
         }
 
@@ -252,27 +258,28 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
             if (isApproachingOrExceeded) {
                 // In camera zone AND about to break / exceeding limit
                 if (currentTime - lastAlertTimeMs >= cooldownMs || cameraZoneId != lastAnnouncedCameraZoneId) {
-                    if (cameraVoiceAlertsEnabled || alertMode != AlertMode.SOUND) {
-                        dispatchAlert(warningMessage)
+                    val isExceeded = currentSpeedKmh >= speedLimitKmh
+                    if (cameraVoiceAlertsEnabled || alertMode != AlertMode.VOICE) {
+                        dispatchAlert(warningMessage, isExceededAlert = isExceeded)
                     } else {
-                        val prompt = if (currentSpeedKmh >= speedLimitKmh) {
+                        val prompt = if (isExceeded) {
                             "You have crossed the speed limit, slow down."
                         } else {
                             "You are about to cross the speed limit, slow down."
                         }
-                        dispatchAlert(prompt)
+                        dispatchAlert(prompt, isExceededAlert = isExceeded)
                     }
                     lastAlertTimeMs = currentTime
                     lastAnnouncedCameraZoneId = cameraZoneId
                     hasApproachingAlertFired = true
-                    if (currentSpeedKmh >= speedLimitKmh) {
+                    if (isExceeded) {
                         hasExceededAlertFired = true
                     }
                 }
             } else {
-                // In camera zone AND driving safely within limit: announce once per corridor entry
-                if (cameraVoiceAlertsEnabled && cameraZoneId != lastAnnouncedCameraZoneId) {
-                    dispatchAlert(safeMessage)
+                // In camera zone AND driving safely within limit: announce once per corridor entry (Voice only)
+                if (cameraVoiceAlertsEnabled && alertMode == AlertMode.VOICE && cameraZoneId != lastAnnouncedCameraZoneId) {
+                    dispatchAlert(safeMessage, isExceededAlert = false)
                     lastAnnouncedCameraZoneId = cameraZoneId
                     lastAlertTimeMs = currentTime
                 }
@@ -289,7 +296,7 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
             if (isExceeded) {
                 // Exceeding speed limit
                 if (!hasExceededAlertFired || (currentTime - lastAlertTimeMs >= cooldownMs)) {
-                    dispatchAlert("You have crossed the speed limit, slow down.")
+                    dispatchAlert("You have crossed the speed limit, slow down.", isExceededAlert = true)
                     lastAlertTimeMs = currentTime
                     hasExceededAlertFired = true
                     hasApproachingAlertFired = true
@@ -298,7 +305,7 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
                 // About to cross speed limit
                 hasExceededAlertFired = false
                 if (!hasApproachingAlertFired || (currentTime - lastAlertTimeMs >= cooldownMs)) {
-                    dispatchAlert("You are about to cross the speed limit, slow down.")
+                    dispatchAlert("You are about to cross the speed limit, slow down.", isExceededAlert = false)
                     lastAlertTimeMs = currentTime
                     hasApproachingAlertFired = true
                 }

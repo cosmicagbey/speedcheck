@@ -113,20 +113,16 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val repository = remember { PreferencesRepository.getInstance(context) }
     val ttsManager = remember { TextToSpeechManager(context) }
-    val vibrationManager = remember { VibrationManager(context) }
+    val beepManager = remember { com.speedcheck.android.util.BeepManager(context) }
     val updateManager = remember { InAppUpdateManager.getInstance(context) }
     val updateStatus by updateManager.updateStatus.collectAsState()
     val activity = context as? android.app.Activity
 
-    var customLimitInput by remember(userPreferences.speedLimitKmh) {
-        mutableStateOf(userPreferences.speedLimitKmh.toString())
-    }
     var showGhanaGuideDialog by remember { mutableStateOf(false) }
     var showSpeedometerGuideDialog by remember { mutableStateOf(false) }
     var showPrivacyPolicyDialog by remember { mutableStateOf(false) }
     var isCameraListExpanded by remember { mutableStateOf(false) }
 
-    val presetLimits = listOf(30, 50, 80, 100, 120)
     val cooldownOptions = listOf(10, 15, 20, 30, 60)
 
     Scaffold(
@@ -283,77 +279,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // SECTION 2: Manual Speed Limit Settings
-            SettingsSectionHeader(title = "MANUAL SPEED LIMIT SETTING", icon = Icons.Default.Speed)
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Fallback / Manual Limit: ${userPreferences.speedLimitKmh} km/h",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    )
-                    Text(
-                        text = if (userPreferences.autoDetectSpeedLimit)
-                            "Used when road or camera data is unavailable."
-                        else
-                            "Currently used for all speed alerts.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        presetLimits.forEach { limit ->
-                            FilterChip(
-                                selected = userPreferences.speedLimitKmh == limit,
-                                onClick = {
-                                    scope.launch { repository.updateSpeedLimit(limit) }
-                                },
-                                label = { Text("$limit km/h") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = SpeedSafeGreen,
-                                    selectedLabelColor = Color.Black
-                                )
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        OutlinedTextField(
-                            value = customLimitInput,
-                            onValueChange = { input ->
-                                if (input.length <= 3 && input.all { it.isDigit() }) {
-                                    customLimitInput = input
-                                    val parsed = input.toIntOrNull()
-                                    if (parsed != null && parsed in 10..200) {
-                                        scope.launch { repository.updateSpeedLimit(parsed) }
-                                    }
-                                }
-                            },
-                            label = { Text("Custom Limit (km/h)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // SECTION 3: Approaching Warning Configuration
+            // SECTION 2: Approaching Warning Configuration
             SettingsSectionHeader(title = "EARLY APPROACHING ALERT", icon = Icons.Default.NotificationsActive)
 
             Card(
@@ -428,11 +354,11 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 1. Sound Mode: Speaker icon + (Voice)
+                        // 1. Voice Mode
                         FilterChip(
-                            selected = userPreferences.alertMode == AlertMode.SOUND,
+                            selected = userPreferences.alertMode == AlertMode.VOICE,
                             onClick = {
-                                scope.launch { repository.updateAlertMode(AlertMode.SOUND) }
+                                scope.launch { repository.updateAlertMode(AlertMode.VOICE) }
                             },
                             label = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -442,7 +368,7 @@ fun SettingsScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("(Voice)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Voice", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             },
                             colors = FilterChipDefaults.filterChipColors(
@@ -451,49 +377,34 @@ fun SettingsScreen(
                             )
                         )
 
-                        // 2. Vibrate Mode: Vibration icon only
+                        // 2. Beep Mode
                         FilterChip(
-                            selected = userPreferences.alertMode == AlertMode.VIBRATE,
+                            selected = userPreferences.alertMode == AlertMode.BEEP,
                             onClick = {
-                                scope.launch { repository.updateAlertMode(AlertMode.VIBRATE) }
-                                vibrationManager.triggerModeSwitchTick()
+                                scope.launch { repository.updateAlertMode(AlertMode.BEEP) }
+                                beepManager.triggerApproachingBeep()
                             },
                             label = {
-                                Icon(
-                                    imageVector = Icons.Default.Vibration,
-                                    contentDescription = "Vibrate Alert Mode",
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.NotificationsActive,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Beep", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
                             },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = GhanaGold,
                                 selectedLabelColor = Color.Black
                             )
                         )
-
-                        // 3. Mute Mode: Volume off icon only
-                        FilterChip(
-                            selected = userPreferences.alertMode == AlertMode.MUTE,
-                            onClick = {
-                                scope.launch { repository.updateAlertMode(AlertMode.MUTE) }
-                            },
-                            label = {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.VolumeOff,
-                                    contentDescription = "Mute Alert Mode",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = SpeedExceededRed,
-                                selectedLabelColor = Color.White
-                            )
-                        )
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    if (userPreferences.alertMode == AlertMode.SOUND) {
+                    if (userPreferences.alertMode == AlertMode.VOICE) {
                         Text(
                             text = "Voice Style:",
                             fontSize = 13.sp,
@@ -548,11 +459,11 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Test Alert Button (Voice or Vibration based on mode)
+                    // Test Alert Button (Voice or Beep based on mode)
                     OutlinedButton(
                         onClick = {
-                            if (userPreferences.alertMode == AlertMode.VIBRATE) {
-                                vibrationManager.triggerAlertVibration()
+                            if (userPreferences.alertMode == AlertMode.BEEP) {
+                                beepManager.triggerExceededBeep()
                             } else {
                                 ttsManager.updateVoiceConfig(
                                     gender = userPreferences.voiceGender,
@@ -565,12 +476,12 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(
-                            imageVector = if (userPreferences.alertMode == AlertMode.VIBRATE) Icons.Default.Vibration else Icons.AutoMirrored.Filled.VolumeUp,
+                            imageVector = if (userPreferences.alertMode == AlertMode.BEEP) Icons.Default.NotificationsActive else Icons.AutoMirrored.Filled.VolumeUp,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (userPreferences.alertMode == AlertMode.VIBRATE) "Test 4s Vibration Alert Now" else "Test Voice Alerts Now")
+                        Text(if (userPreferences.alertMode == AlertMode.BEEP) "Test Beep Alerts Now" else "Test Voice Alerts Now")
                     }
                 }
             }

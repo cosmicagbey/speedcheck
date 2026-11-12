@@ -26,7 +26,7 @@ class SpeedCheckUnitTest {
         val prefs = UserPreferences()
         assertEquals(30, prefs.speedLimitKmh)
         assertEquals(5, prefs.approachingOffsetKmh)
-        assertEquals(com.speedcheck.android.data.AlertMode.SOUND, prefs.alertMode)
+        assertEquals(com.speedcheck.android.data.AlertMode.VOICE, prefs.alertMode)
         assertTrue(prefs.voiceAlertsEnabled)
         assertTrue(prefs.approachingAlertEnabled)
         assertTrue(prefs.autoDetectSpeedLimit)
@@ -327,14 +327,12 @@ class SpeedCheckUnitTest {
 
     @Test
     fun alertMode_cyclesInStrictOrder() {
-        val sound = com.speedcheck.android.data.AlertMode.SOUND
-        val vibrate = sound.next()
-        val mute = vibrate.next()
-        val backToSound = mute.next()
+        val voice = com.speedcheck.android.data.AlertMode.VOICE
+        val beep = voice.next()
+        val backToVoice = beep.next()
 
-        org.junit.Assert.assertEquals(com.speedcheck.android.data.AlertMode.VIBRATE, vibrate)
-        org.junit.Assert.assertEquals(com.speedcheck.android.data.AlertMode.MUTE, mute)
-        org.junit.Assert.assertEquals(com.speedcheck.android.data.AlertMode.SOUND, backToSound)
+        org.junit.Assert.assertEquals(com.speedcheck.android.data.AlertMode.BEEP, beep)
+        org.junit.Assert.assertEquals(com.speedcheck.android.data.AlertMode.VOICE, backToVoice)
     }
 
     @Test

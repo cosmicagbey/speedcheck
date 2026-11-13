@@ -11,8 +11,8 @@ android {
         applicationId = "com.speedcheck.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 11
-        versionName = "1.0.0"
+        versionCode = 12
+        versionName = "1.0.1"
     }
 
     sourceSets {
@@ -25,14 +25,10 @@ android {
         create("release") {
             val keystorePath = System.getenv("KEYSTORE_FILE") ?: "../keystore/upload-keystore.jks"
             val keystoreFile = file(keystorePath)
-            val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
-            val keyAliasValue = System.getenv("KEY_ALIAS")
-            val keyPasswordValue = System.getenv("KEY_PASSWORD")
-            if (keystoreFile.exists() &&
-                keystorePassword != null &&
-                keyAliasValue != null &&
-                keyPasswordValue != null
-            ) {
+            val keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: "speedcheckpass"
+            val keyAliasValue = System.getenv("KEY_ALIAS") ?: "speedcheck"
+            val keyPasswordValue = System.getenv("KEY_PASSWORD") ?: "speedcheckpass"
+            if (keystoreFile.exists()) {
                 storeFile = keystoreFile
                 storePassword = keystorePassword
                 keyAlias = keyAliasValue

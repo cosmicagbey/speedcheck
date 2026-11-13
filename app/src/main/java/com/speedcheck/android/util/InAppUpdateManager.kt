@@ -38,6 +38,14 @@ sealed class InAppUpdateStatus {
 }
 
 /**
+ * Convenience extension indicating whether an update is available or in progress for install.
+ */
+val InAppUpdateStatus.hasUpdateAvailable: Boolean
+    get() = this is InAppUpdateStatus.UpdateAvailable ||
+            this is InAppUpdateStatus.Downloading ||
+            this is InAppUpdateStatus.Downloaded
+
+/**
  * Manages official Google Play In-App Updates, allowing users to receive, download,
  * and install new releases seamlessly inside the app without opening the Play Store.
  */

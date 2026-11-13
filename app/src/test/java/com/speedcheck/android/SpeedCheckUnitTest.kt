@@ -9,6 +9,8 @@ import com.speedcheck.android.service.SpeedCameraDetector
 import com.speedcheck.android.service.hasAcceptableLocationAccuracy
 import com.speedcheck.android.service.evaluateSpeedAlertStatus
 import com.speedcheck.android.service.isPlausibleTripDistance
+import com.speedcheck.android.util.InAppUpdateStatus
+import com.speedcheck.android.util.hasUpdateAvailable
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -433,6 +435,23 @@ class SpeedCheckUnitTest {
         // 100 KM/H ≈ 62 MPH
         val motorwayMph = (100f * 0.621371f).toInt()
         assertEquals(62, motorwayMph)
+    }
+
+    @Test
+    fun inAppUpdateStatus_hasUpdateAvailableEvaluatesCorrectly() {
+        val idle = InAppUpdateStatus.Idle
+        val checking = InAppUpdateStatus.Checking
+        val upToDate = InAppUpdateStatus.UpToDate("1.0.0", 11L)
+        val downloaded = InAppUpdateStatus.Downloaded
+        val downloading = InAppUpdateStatus.Downloading(500L, 1000L)
+        val error = InAppUpdateStatus.Error("Network error")
+
+        assertFalse(idle.hasUpdateAvailable)
+        assertFalse(checking.hasUpdateAvailable)
+        assertFalse(upToDate.hasUpdateAvailable)
+        assertFalse(error.hasUpdateAvailable)
+        assertTrue(downloaded.hasUpdateAvailable)
+        assertTrue(downloading.hasUpdateAvailable)
     }
 
 }

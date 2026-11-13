@@ -1,7 +1,14 @@
 package com.speedcheck.android.ui.settings
 
 import android.content.Intent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +25,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -67,19 +76,25 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.speedcheck.android.data.AlertMode
@@ -95,6 +110,8 @@ import com.speedcheck.android.ui.components.BatteryOptimizationCard
 import com.speedcheck.android.util.InAppUpdateManager
 import com.speedcheck.android.util.InAppUpdateStatus
 import com.speedcheck.android.util.VibrationManager
+import com.speedcheck.android.util.hasUpdateAvailable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -106,6 +123,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     userPreferences: UserPreferences,
     onNavigateBack: (() -> Unit)? = null,
+    scrollToUpdateTrigger: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -117,6 +135,44 @@ fun SettingsScreen(
     val updateManager = remember { InAppUpdateManager.getInstance(context) }
     val updateStatus by updateManager.updateStatus.collectAsState()
     val activity = context as? android.app.Activity
+
+    val scrollState = rememberScrollState()
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    var updatesSectionY by remember { mutableIntStateOf(-1) }
+    var columnTopY by remember { mutableIntStateOf(0) }
+    var highlightUpdatesGlow by remember { mutableStateOf(false) }
+
+    val hasUpdateAvailable = updateStatus.hasUpdateAvailable
+    val shouldGlow = hasUpdateAvailable || highlightUpdatesGlow
+
+    val infiniteTransition = rememberInfiniteTransition(label = "inAppUpdatesGlow")
+    val cardGlowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.45f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "cardGlowAlpha"
+    )
+    val cardGlowBorderWidth = (2.0f + (cardGlowAlpha - 0.45f) * 2.5f).dp
+
+    LaunchedEffect(scrollToUpdateTrigger) {
+        if (scrollToUpdateTrigger > 0) {
+            highlightUpdatesGlow = true
+            delay(150)
+            if (updatesSectionY > 0) {
+                val targetScroll = (updatesSectionY - 40).coerceAtLeast(0).coerceAtMost(scrollState.maxValue)
+                scrollState.animateScrollTo(targetScroll)
+            } else {
+                try {
+                    bringIntoViewRequester.bringIntoView()
+                } catch (e: Exception) {
+                    scrollState.animateScrollTo(scrollState.maxValue)
+                }
+            }
+        }
+    }
 
     var showGhanaGuideDialog by remember { mutableStateOf(false) }
     var showSpeedometerGuideDialog by remember { mutableStateOf(false) }
@@ -151,7 +207,10 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
+                .onGloballyPositioned { coords ->
+                    columnTopY = coords.positionInRoot().y.toInt()
+                }
         ) {
             // SECTION 1: Location & known camera zones
             SettingsSectionHeader(title = "LOCATION", icon = Icons.Default.Radar)
@@ -524,13 +583,50 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // SECTION 6: In-App Updates
-            SettingsSectionHeader(title = "IN-APP UPDATES", icon = Icons.Default.SystemUpdate)
-            InAppUpdateCard(
-                updateStatus = updateStatus,
-                onCheckForUpdates = { updateManager.checkForUpdates() },
-                onStartUpdate = { activity?.let { updateManager.startUpdate(it, immediate = false) } },
-                onCompleteUpdate = { updateManager.completeUpdate() }
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(bringIntoViewRequester)
+                    .onGloballyPositioned { coords ->
+                        updatesSectionY = (coords.positionInRoot().y - columnTopY).toInt() + scrollState.value
+                    }
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    SettingsSectionHeader(title = "IN-APP UPDATES", icon = Icons.Default.SystemUpdate)
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (shouldGlow) {
+                                    Modifier
+                                        .background(
+                                            brush = Brush.radialGradient(
+                                                colors = listOf(
+                                                    GhanaGold.copy(alpha = 0.35f * cardGlowAlpha),
+                                                    SpeedSafeGreen.copy(alpha = 0.2f * cardGlowAlpha),
+                                                    Color.Transparent
+                                                ),
+                                                radius = 700f
+                                            ),
+                                            shape = RoundedCornerShape(18.dp)
+                                        )
+                                        .padding(3.dp)
+                                } else Modifier
+                            )
+                    ) {
+                        InAppUpdateCard(
+                            updateStatus = updateStatus,
+                            isGlowing = shouldGlow,
+                            glowAlpha = cardGlowAlpha,
+                            glowBorderWidth = cardGlowBorderWidth,
+                            onCheckForUpdates = { updateManager.checkForUpdates() },
+                            onStartUpdate = { activity?.let { updateManager.startUpdate(it, immediate = false) } },
+                            onCompleteUpdate = { updateManager.completeUpdate() }
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -604,12 +700,32 @@ fun SettingsScreen(
 @Composable
 private fun InAppUpdateCard(
     updateStatus: InAppUpdateStatus,
+    isGlowing: Boolean = false,
+    glowAlpha: Float = 1.0f,
+    glowBorderWidth: Dp = 2.dp,
     onCheckForUpdates: () -> Unit,
     onStartUpdate: () -> Unit,
     onCompleteUpdate: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (isGlowing) {
+                    Modifier.border(
+                        width = glowBorderWidth,
+                        brush = Brush.linearGradient(
+                            listOf(
+                                GhanaGold.copy(alpha = glowAlpha),
+                                SpeedSafeGreen.copy(alpha = glowAlpha),
+                                GhanaGold.copy(alpha = glowAlpha)
+                            )
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                } else Modifier
+            ),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {

@@ -312,7 +312,7 @@ fun DashboardScreen(
                                 append("📷 Camera zone enforcement: ")
                             }
                             if (cameraDetection.areaType == "Unmapped") {
-                                append("No mapped road or area; applying conservative ${cameraDetection.recommendedLimitKmh} km/h limit")
+                                append("No mapped road limit: set to ${cameraDetection.recommendedLimitKmh} km/h")
                             } else {
                                 append("Speed limit automatically set to ${cameraDetection.recommendedLimitKmh} km/h")
                             }

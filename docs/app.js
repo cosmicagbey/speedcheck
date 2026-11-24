@@ -735,49 +735,67 @@ function distanceToOsmRoadSegmentMeters(latitude, longitude, segment) {
   return Math.hypot(startX + projection * deltaX, startY + projection * deltaY);
 }
 
-function findOpenStreetMapSpeedLimit(latitude, longitude, accuracyMeters, speedKmh, heading) {
+function projectForwardCoordinate(latitude, longitude, bearingDegrees, distanceMeters) {
+  const earthRadius = 6371000.0;
+  const angularDistance = distanceMeters / earthRadius;
+  const latRad = toRadians(latitude);
+  const lonRad = toRadians(longitude);
+  const bearingRad = toRadians(bearingDegrees);
+
+  const targetLatRad = Math.asin(
+    Math.sin(latRad) * Math.cos(angularDistance) +
+    Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearingRad)
+  );
+  const targetLonRad = lonRad + Math.atan2(
+    Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(latRad),
+    Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(targetLatRad)
+  );
+
+  return [toDegrees(targetLatRad), toDegrees(targetLonRad)];
+}
+
+function findOpenStreetMapSafetyZone(latitude, longitude, accuracyMeters) {
   if (!osmSpeedLimitMatcher ||
       !Number.isFinite(latitude) || !Number.isFinite(longitude) ||
-      !Number.isFinite(accuracyMeters) || accuracyMeters < 0 || accuracyMeters > 15) {
+      !Number.isFinite(accuracyMeters) || accuracyMeters < 0 || accuracyMeters > 20) {
     return null;
   }
 
-  function findOpenStreetMapSafetyZone(latitude, longitude, accuracyMeters) {
-    if (!osmSpeedLimitMatcher ||
-        !Number.isFinite(latitude) || !Number.isFinite(longitude) ||
-        !Number.isFinite(accuracyMeters) || accuracyMeters < 0 || accuracyMeters > 15) {
-      return null;
-    }
+  const latitudeCell = Math.floor(latitude / OSM_GRID_CELL_DEGREES);
+  const longitudeCell = Math.floor(longitude / OSM_GRID_CELL_DEGREES);
+  const zones = osmSpeedLimitMatcher.safetyGrid.get(osmCellKey(latitudeCell, longitudeCell)) || [];
+  const checked = new Set();
+  let closestSafety = null;
+  let closestSafetyDistance = Infinity;
+  let closestBuiltUp = null;
+  let closestBuiltUpDistance = Infinity;
 
-    const latitudeCell = Math.floor(latitude / OSM_GRID_CELL_DEGREES);
-    const longitudeCell = Math.floor(longitude / OSM_GRID_CELL_DEGREES);
-    const zones = osmSpeedLimitMatcher.safetyGrid.get(osmCellKey(latitudeCell, longitudeCell)) || [];
-    const checked = new Set();
-    let closestSafety = null;
-    let closestSafetyDistance = Infinity;
-    let closestBuiltUp = null;
-    let closestBuiltUpDistance = Infinity;
-
-    zones.forEach((zone) => {
-      if (checked.has(zone.id)) return;
-      checked.add(zone.id);
-      const distance = calculateDistanceMeters(latitude, longitude, zone.latitude, zone.longitude);
-      if (distance > zone.radiusMeters + accuracyMeters) return;
-      if (zone.category === 'built_up') {
-        if (distance < closestBuiltUpDistance) {
-          closestBuiltUp = zone;
-          closestBuiltUpDistance = distance;
-        }
-      } else if (distance < closestSafetyDistance) {
-        closestSafety = zone;
-        closestSafetyDistance = distance;
+  zones.forEach((zone) => {
+    if (checked.has(zone.id)) return;
+    checked.add(zone.id);
+    const distance = calculateDistanceMeters(latitude, longitude, zone.latitude, zone.longitude);
+    if (distance > zone.radiusMeters + accuracyMeters) return;
+    if (zone.category === 'built_up') {
+      if (distance < closestBuiltUpDistance) {
+        closestBuiltUp = zone;
+        closestBuiltUpDistance = distance;
       }
-    });
+    } else if (distance < closestSafetyDistance) {
+      closestSafety = zone;
+      closestSafetyDistance = distance;
+    }
+  });
 
-    return closestSafety || closestBuiltUp;
+  return closestSafety || closestBuiltUp;
+}
+
+function findSinglePointOsmRoadMatch(latitude, longitude, accuracyMeters, speedKmh, heading) {
+  if (!osmSpeedLimitMatcher ||
+      !Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+      !Number.isFinite(accuracyMeters) || accuracyMeters < 0 || accuracyMeters > 20) {
+    return null;
   }
 
-  const maximumDistance = Math.max(8, accuracyMeters);
   const latitudeCell = Math.floor(latitude / OSM_GRID_CELL_DEGREES);
   const longitudeCell = Math.floor(longitude / OSM_GRID_CELL_DEGREES);
   const checkedSegments = new Set();
@@ -796,6 +814,10 @@ function findOpenStreetMapSpeedLimit(latitude, longitude, accuracyMeters, speedK
           const axisDifference = Math.min(directedDifference, 180 - directedDifference);
           if (axisDifference > 55) return;
         }
+
+        const isHighway = ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link'].includes(segment.way.highway);
+        const baseDistance = isHighway ? 26 : 18;
+        const maximumDistance = Math.max(baseDistance, accuracyMeters);
 
         const distanceMeters = distanceToOsmRoadSegmentMeters(latitude, longitude, segment);
         if (distanceMeters > maximumDistance) return;
@@ -835,6 +857,28 @@ function findOpenStreetMapSpeedLimit(latitude, longitude, accuracyMeters, speedK
     areaType,
     source: 'OpenStreetMap'
   };
+}
+
+function findOpenStreetMapSpeedLimit(latitude, longitude, accuracyMeters, speedKmh, heading) {
+  const currentMatch = findSinglePointOsmRoadMatch(latitude, longitude, accuracyMeters, speedKmh, heading);
+
+  if (!Number.isFinite(heading) || !Number.isFinite(speedKmh) || speedKmh < 10) {
+    return currentMatch;
+  }
+
+  // Predictive lookahead matching: 2.5 seconds forward (clamped 25m to 70m)
+  const speedMps = speedKmh * (1000 / 3600);
+  const lookaheadMeters = Math.min(70, Math.max(25, speedMps * 2.5));
+  const [projLat, projLon] = projectForwardCoordinate(latitude, longitude, heading, lookaheadMeters);
+  const lookaheadMatch = findSinglePointOsmRoadMatch(projLat, projLon, accuracyMeters, speedKmh, heading);
+
+  if (lookaheadMatch && (!currentMatch || lookaheadMatch.speedLimitKmh > currentMatch.speedLimitKmh)) {
+    return lookaheadMatch;
+  }
+  if (!currentMatch && lookaheadMatch) {
+    return lookaheadMatch;
+  }
+  return currentMatch;
 }
 
 function escapeHtmlText(value) {
@@ -1229,7 +1273,7 @@ function processSpeedAlerts(speedKmh, limitKmh) {
         announcement = `SpeedCheck ready. ${state.activeSpeedLimitZone.name}. Speed limit ${limitKmh} km/h.`;
       } else {
         announcement = state.autoDetectEnabled
-          ? `No mapped road limit. Using selected limit ${limitKmh} km/h.`
+          ? `No mapped road limit: set to ${limitKmh} km/h.`
           : `Manual speed limit ${limitKmh} km/h.`;
       }
       speakVoice(announcement);
@@ -1724,21 +1768,16 @@ function updateUI() {
         const d = Math.round(state.distanceToCameraMeters);
         const prefix = state.activeZone.isMobilePatrol ? "⚠️ Potential Police Speedcam:" : "📷 Camera Ahead:";
         const source = state.activeSpeedLimitZone && state.activeSpeedLimitZone.id.startsWith('osm_zone_')
-          ? ` · OpenStreetMap ${state.activeSpeedLimitZone.areaType.toLowerCase()}`
-          : state.activeSpeedLimitZone && state.activeSpeedLimitZone.source === 'OpenStreetMap'
-            ? ' · OpenStreetMap road limit'
+          ? ` · ${state.activeSpeedLimitZone.areaType} safety limit`
+          : state.activeSpeedLimitZone
+            ? ` · ${state.activeSpeedLimitZone.name} (${state.activeSpeedLimitZone.speedLimitKmh} km/h)`
             : '';
         radarStatus.innerHTML = `<strong>${prefix}</strong> ${state.activeZone.roadName || state.activeZone.name} (${d}m) • Limit: <strong>${state.effectiveLimitKmh} km/h</strong>${source}`;
       } else if (state.activeSpeedLimitZone) {
         const roadName = escapeHtmlText(state.activeSpeedLimitZone.name);
-        const isArea = state.activeSpeedLimitZone.id.startsWith('osm_zone_');
-        const source = state.activeSpeedLimitZone.source === 'OpenStreetMap'
-          ? isArea ? ` (OpenStreetMap ${state.activeSpeedLimitZone.areaType.toLowerCase()})` : ' (OpenStreetMap)'
-          : '';
-        const limitLabel = isArea ? 'Area Limit' : 'Road Limit';
-        radarStatus.innerHTML = `<strong>📍 ${limitLabel}${source}:</strong> ${roadName} • Limit: <strong>${state.activeSpeedLimitZone.speedLimitKmh} km/h</strong>`;
+        radarStatus.innerHTML = `<strong>📍 ${roadName}</strong> • Limit: <strong>${state.activeSpeedLimitZone.speedLimitKmh} km/h</strong>`;
       } else {
-        radarStatus.innerHTML = '<strong>No mapped limit:</strong> Applying conservative <strong>30 km/h</strong> fallback';
+        radarStatus.innerHTML = '<strong>No mapped road limit:</strong> set to <strong>30 km/h</strong>';
       }
     } else {
       radarCard.classList.remove('auto-active');

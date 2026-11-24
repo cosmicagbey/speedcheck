@@ -1191,9 +1191,9 @@ object SpeedCameraDetector {
                 statusDescription = if (safetyZone != null && applicableLimitZone != mappedRoadLimit) {
                     "$cameraDescription • ${automaticLimit.areaType} safety limit"
                 } else if (mappedRoadLimit != null) {
-                    "$cameraDescription • OpenStreetMap road limit"
+                    "$cameraDescription • ${mappedRoadLimit.roadName} (${mappedRoadLimit.speedLimitKmh} km/h)"
                 } else {
-                    "$cameraDescription • Conservative 30 km/h fallback"
+                    "$cameraDescription • Set to 30 km/h"
                 }
             )
         }
@@ -1211,11 +1211,7 @@ object SpeedCameraDetector {
                 detectedRoadName = limitZone.roadName,
                 areaType = limitZone.areaType,
                 recommendedLimitKmh = limitZone.speedLimitKmh,
-                statusDescription = if (limitZone is MatchedRoadSpeedLimit) {
-                    "📍 OpenStreetMap road limit: ${limitZone.roadName} • ${limitZone.speedLimitKmh} km/h"
-                } else {
-                    "📍 ${limitZone.roadName} • ${limitZone.speedLimitKmh} km/h"
-                }
+                statusDescription = "📍 ${limitZone.roadName} • ${limitZone.speedLimitKmh} km/h"
             )
         }
 
@@ -1230,7 +1226,7 @@ object SpeedCameraDetector {
             detectedRoadName = null,
             areaType = "Unmapped",
             recommendedLimitKmh = 30,
-            statusDescription = "No mapped road limit; applying conservative 30 km/h fallback"
+            statusDescription = "No mapped road limit: set to 30 km/h"
         )
     }
 
@@ -1315,7 +1311,7 @@ object SpeedCameraDetector {
         val matcher = openStreetMapMatcher ?: return null
         val accuracy = if (currentLocation.hasAccuracy()) currentLocation.accuracy else null
         val bearing = if (currentLocation.hasBearing()) currentLocation.bearing else null
-        return matcher.findMatch(
+        return matcher.findMatchWithLookahead(
             latitude = currentLocation.latitude,
             longitude = currentLocation.longitude,
             accuracyMeters = accuracy,

@@ -341,7 +341,7 @@ class SpeedTrackingService : Service() {
                         detectionResult.hasCameraAhead ->
                             "SpeedCheck ready. Speed limit $effectiveLimit km/h."
                         detectionResult.areaType == "Unmapped" ->
-                            "No mapped road limit. Using selected limit $effectiveLimit km/h."
+                            "No mapped road limit: set to $effectiveLimit km/h."
                         !detectionResult.isAutoDetectActive ->
                             "Manual speed limit $effectiveLimit km/h."
                         detectionResult.detectedRoadName != null ->

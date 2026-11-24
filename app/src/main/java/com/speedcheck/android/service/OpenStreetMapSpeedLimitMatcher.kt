@@ -95,6 +95,50 @@ class OpenStreetMapSpeedLimitMatcher(
         }
     }
 
+    /**
+     * Finds the applicable speed limit matching the current position or an upcoming
+     * road along the driver's forward trajectory (predictive lookahead matching).
+     *
+     * When a driver is heading toward a highway or road with a different (especially higher)
+     * speed limit, projecting forward by 2.0 to 3.5 seconds detects the upcoming road ahead of time.
+     * This avoids latency and eliminates false overspeed warnings as the driver accelerates to merge.
+     */
+    fun findMatchWithLookahead(
+        latitude: Double,
+        longitude: Double,
+        accuracyMeters: Float?,
+        bearingDegrees: Float?,
+        speedKmh: Float,
+        lookaheadSeconds: Double = 2.5
+    ): MatchedRoadSpeedLimit? {
+        val currentMatch = findMatch(latitude, longitude, accuracyMeters, bearingDegrees, speedKmh)
+
+        if (bearingDegrees == null || !bearingDegrees.isFinite() || speedKmh < MIN_HEADING_SPEED_KMH) {
+            return currentMatch
+        }
+
+        // Project forward along heading vector by 2.5 seconds of travel (clamped between 25m and 70m)
+        val speedMps = speedKmh * (1000.0 / 3600.0)
+        val lookaheadMeters = (speedMps * lookaheadSeconds).coerceIn(25.0, 70.0)
+        val (projLat, projLon) = projectForward(latitude, longitude, bearingDegrees.toDouble(), lookaheadMeters)
+
+        val lookaheadMatch = findMatch(projLat, projLon, accuracyMeters, bearingDegrees, speedKmh)
+
+        return when {
+            // Case 1: Approaching a higher speed limit road ahead (e.g. accelerating onto a highway).
+            // Adopt early so driver accelerating onto the highway does not get false overspeed alerts!
+            lookaheadMatch != null && (currentMatch == null || lookaheadMatch.speedLimitKmh > currentMatch.speedLimitKmh) -> {
+                lookaheadMatch
+            }
+            // Case 2: Entering a mapped road from an unmapped area ahead
+            currentMatch == null && lookaheadMatch != null -> {
+                lookaheadMatch
+            }
+            // Case 3: Retain current match (including when upcoming road has lower limit until driver reaches it).
+            else -> currentMatch
+        }
+    }
+
     fun findMatch(
         latitude: Double,
         longitude: Double,
@@ -111,7 +155,6 @@ class OpenStreetMapSpeedLimitMatcher(
         val accuracy = accuracyMeters?.takeIf { it.isFinite() && it >= 0f } ?: return null
         if (accuracy > MAX_LOCATION_ACCURACY_METERS) return null
 
-        val maximumDistance = maxOf(MIN_MATCH_DISTANCE_METERS, accuracy.toDouble())
         val latitudeCell = cellFor(latitude)
         val longitudeCell = cellFor(longitude)
         val checkedSegments = HashSet<Int>()
@@ -128,6 +171,10 @@ class OpenStreetMapSpeedLimitMatcher(
                     ) {
                         continue
                     }
+
+                    val isHighway = segment.feature.highway in HIGHWAY_TYPES
+                    val baseDistance = if (isHighway) HIGHWAY_MATCH_DISTANCE_METERS else MIN_MATCH_DISTANCE_METERS
+                    val maximumDistance = maxOf(baseDistance, accuracy.toDouble())
 
                     val distance = distanceToSegmentMeters(latitude, longitude, segment)
                     if (distance > maximumDistance) continue
@@ -267,15 +314,19 @@ class OpenStreetMapSpeedLimitMatcher(
         private const val RADIANS_TO_DEGREES = 180.0 / PI
         private const val MIN_SPEED_LIMIT_KMH = 5
         private const val MAX_SPEED_LIMIT_KMH = 160
-        private const val MIN_MATCH_DISTANCE_METERS = 8.0
+        private const val MIN_MATCH_DISTANCE_METERS = 18.0
+        private const val HIGHWAY_MATCH_DISTANCE_METERS = 26.0
         private const val MIN_AMBIGUITY_DISTANCE_METERS = 5.0
         private const val AMBIGUITY_ACCURACY_FACTOR = 0.5
-        private const val MAX_LOCATION_ACCURACY_METERS = 15f
+        private const val MAX_LOCATION_ACCURACY_METERS = 20f
         private const val MIN_HEADING_SPEED_KMH = 10f
         private const val MAX_HEADING_DIFFERENCE_DEGREES = 55.0
         private const val BUILT_UP_CATEGORY = "built_up"
         private val SUPPORTED_ZONE_CATEGORIES =
             setOf("school", "playground", "health", "worship", "market", BUILT_UP_CATEGORY)
+        private val HIGHWAY_TYPES = setOf(
+            "motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link"
+        )
         private val SUPPORTED_HIGHWAYS = setOf(
             "motorway",
             "motorway_link",
@@ -288,5 +339,27 @@ class OpenStreetMapSpeedLimitMatcher(
             "tertiary",
             "tertiary_link"
         )
+
+        fun projectForward(
+            latitude: Double,
+            longitude: Double,
+            bearingDegrees: Double,
+            distanceMeters: Double
+        ): Pair<Double, Double> {
+            val angularDistance = distanceMeters / 6_371_000.0
+            val latRad = latitude * DEGREES_TO_RADIANS
+            val lonRad = longitude * DEGREES_TO_RADIANS
+            val bearingRad = bearingDegrees * DEGREES_TO_RADIANS
+
+            val targetLatRad = kotlin.math.asin(
+                sin(latRad) * cos(angularDistance) +
+                    cos(latRad) * sin(angularDistance) * cos(bearingRad)
+            )
+            val targetLonRad = lonRad + atan2(
+                sin(bearingRad) * sin(angularDistance) * cos(latRad),
+                cos(angularDistance) - sin(latRad) * sin(targetLatRad)
+            )
+            return Pair(targetLatRad * RADIANS_TO_DEGREES, targetLonRad * RADIANS_TO_DEGREES)
+        }
     }
 }

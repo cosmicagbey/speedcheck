@@ -62,7 +62,7 @@ class OpenStreetMapSpeedLimitMatcherTest {
             matcher.findMatch(
                 latitude = 5.0,
                 longitude = 0.0,
-                accuracyMeters = 16f,
+                accuracyMeters = 21f,
                 bearingDegrees = 90f,
                 speedKmh = 40f
             )
@@ -149,7 +149,7 @@ class OpenStreetMapSpeedLimitMatcherTest {
             listOf(SafetySpeedZone("town", "Mapped town", "built_up", 5.0, 0.0, 500.0))
         )
 
-        assertNull(matcher.findSafetyZone(5.0, 0.0, 16f))
+        assertNull(matcher.findSafetyZone(5.0, 0.0, 21f))
         assertNull(matcher.findSafetyZone(5.02, 0.0, 5f))
     }
 
@@ -165,6 +165,90 @@ class OpenStreetMapSpeedLimitMatcherTest {
         assertEquals(30, AutomaticSpeedLimitPolicy.resolve(urbanLimit, town).limitKmh)
         assertEquals(30, AutomaticSpeedLimitPolicy.resolve(null, null).limitKmh)
         assertEquals(100, AutomaticSpeedLimitPolicy.resolve(highwayLimit, null).limitKmh)
+    }
+
+    @Test
+    fun lookaheadPredictsUpcomingHighwayAheadOfTime() {
+        val roadA = road(
+            id = "urban_road",
+            name = "Urban Access Road",
+            speedLimitKmh = 50,
+            points = listOf(
+                RoadCoordinate(5.0, -0.0010),
+                RoadCoordinate(5.0, 0.0000)
+            ),
+            highway = "secondary"
+        )
+        val roadB = road(
+            id = "highway_road",
+            name = "George Walker Bush Highway (N1)",
+            speedLimitKmh = 80,
+            points = listOf(
+                RoadCoordinate(5.0, 0.0001),
+                RoadCoordinate(5.0, 0.0020)
+            ),
+            highway = "trunk"
+        )
+        val matcher = OpenStreetMapSpeedLimitMatcher(listOf(roadA, roadB))
+
+        // Position: near end of Road A (lon = -0.0001, speed = 55 km/h, heading East 90°)
+        // Current match is Road A (50 km/h)
+        val currentOnly = matcher.findMatch(
+            latitude = 5.0,
+            longitude = -0.0001,
+            accuracyMeters = 5f,
+            bearingDegrees = 90f,
+            speedKmh = 55f
+        )
+        assertEquals(50, currentOnly?.speedLimitKmh)
+
+        // Lookahead projected ~38m forward reaches onto Road B (80 km/h)
+        val lookahead = matcher.findMatchWithLookahead(
+            latitude = 5.0,
+            longitude = -0.0001,
+            accuracyMeters = 5f,
+            bearingDegrees = 90f,
+            speedKmh = 55f
+        )
+        assertNotNull(lookahead)
+        assertEquals(80, lookahead?.speedLimitKmh)
+        assertEquals("George Walker Bush Highway (N1)", lookahead?.roadName)
+    }
+
+    @Test
+    fun lookaheadPreservesHighwaySpeedLimitUntilActuallyEnteringLowerSpeedRoad() {
+        val highway = road(
+            id = "highway_road",
+            name = "Highway",
+            speedLimitKmh = 80,
+            points = listOf(
+                RoadCoordinate(5.0, -0.0010),
+                RoadCoordinate(5.0, 0.0000)
+            ),
+            highway = "trunk"
+        )
+        val exitRamp = road(
+            id = "exit_ramp",
+            name = "Exit Ramp",
+            speedLimitKmh = 50,
+            points = listOf(
+                RoadCoordinate(5.0, 0.0001),
+                RoadCoordinate(5.0, 0.0020)
+            ),
+            highway = "secondary"
+        )
+        val matcher = OpenStreetMapSpeedLimitMatcher(listOf(highway, exitRamp))
+
+        // On highway cruising at 75 km/h, approaching 50 km/h ramp
+        val match = matcher.findMatchWithLookahead(
+            latitude = 5.0,
+            longitude = -0.0001,
+            accuracyMeters = 5f,
+            bearingDegrees = 90f,
+            speedKmh = 75f
+        )
+        // Preserves 80 km/h so driver is not warned while still traveling on highway
+        assertEquals(80, match?.speedLimitKmh)
     }
 
     private fun road(

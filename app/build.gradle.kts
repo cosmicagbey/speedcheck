@@ -11,7 +11,7 @@ android {
         applicationId = "com.speedcheck.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
+        versionCode = 14
         versionName = "1.0.2"
     }
 

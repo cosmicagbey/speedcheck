@@ -441,7 +441,7 @@ class SpeedCheckUnitTest {
     fun inAppUpdateStatus_hasUpdateAvailableEvaluatesCorrectly() {
         val idle = InAppUpdateStatus.Idle
         val checking = InAppUpdateStatus.Checking
-        val upToDate = InAppUpdateStatus.UpToDate("1.0.2", 13L)
+        val upToDate = InAppUpdateStatus.UpToDate("1.0.2", 14L)
         val downloaded = InAppUpdateStatus.Downloaded
         val downloading = InAppUpdateStatus.Downloading(500L, 1000L)
         val error = InAppUpdateStatus.Error("Network error")

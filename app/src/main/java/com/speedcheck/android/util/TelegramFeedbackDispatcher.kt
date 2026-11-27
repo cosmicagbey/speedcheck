@@ -17,9 +17,9 @@ import java.util.TimeZone
  * directly to a private Telegram bot/channel without opening external apps.
  */
 object TelegramFeedbackConfig {
-    // Replace with your Telegram Bot Token and Chat ID
-    var BOT_TOKEN: String = "YOUR_TELEGRAM_BOT_TOKEN"
-    var CHAT_ID: String = "YOUR_TELEGRAM_CHAT_ID"
+    // Configured Telegram Bot Token and Chat ID
+    var BOT_TOKEN: String = "9033341874:AAFAtjqhOjkAuC_xCiLMb-jR0TPP6lt-ynI"
+    var CHAT_ID: String = "572260323"
 }
 
 object TelegramFeedbackDispatcher {

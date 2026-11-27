@@ -2165,25 +2165,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const type = feedbackTypeSelect ? feedbackTypeSelect.value : 'General';
       const contact = feedbackContactInput ? feedbackContactInput.value.trim() : '';
-      const subject = encodeURIComponent(`[SpeedCheck Feedback] ${type}`);
-      const bodyLines = [
-        `Feedback Type: ${type}`,
-        contact ? `Contact: ${contact}` : '',
+
+      submitFeedbackBtn.disabled = true;
+      submitFeedbackBtn.textContent = 'Sending...';
+
+      const telegramText = [
+        '🚗 *SpeedCheck Web Feedback*',
         '',
-        'Message:',
+        `📌 *Type:* ${type}`,
+        `👤 *Contact:* ${contact || '_Not provided_'}`,
+        '',
+        '💬 *Message:*',
         msg,
         '',
-        '------------------------------',
-        'App: SpeedCheck Web (PWA)',
-        `User Agent: ${navigator.userAgent}`
-      ].filter(l => l !== undefined).join('\n');
+        '📱 *Diagnostics:*',
+        '• Platform: Web PWA',
+        `• Browser: ${navigator.userAgent.slice(0, 100)}`
+      ].join('\n');
 
-      const mailtoUrl = `mailto:kentbanks96@gmail.com?subject=${subject}&body=${encodeURIComponent(bodyLines)}`;
-      window.location.href = mailtoUrl;
-
-      feedbackMessageInput.value = '';
-      if (feedbackContactInput) feedbackContactInput.value = '';
-      closeModal('feedbackModal');
+      fetch('https://api.telegram.org/bot9033341874:AAFAtjqhOjkAuC_xCiLMb-jR0TPP6lt-ynI/sendMessage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: '572260323',
+          text: telegramText,
+          parse_mode: 'Markdown'
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        submitFeedbackBtn.textContent = '✅ Sent Successfully!';
+        submitFeedbackBtn.style.background = 'var(--safe-green)';
+        setTimeout(() => {
+          feedbackMessageInput.value = '';
+          if (feedbackContactInput) feedbackContactInput.value = '';
+          submitFeedbackBtn.disabled = false;
+          submitFeedbackBtn.textContent = 'Submit Feedback';
+          submitFeedbackBtn.style.background = '';
+          closeModal('feedbackModal');
+        }, 1500);
+      })
+      .catch(err => {
+        console.error('Telegram dispatch error:', err);
+        // Fallback to mailto if network fails
+        const subject = encodeURIComponent(`[SpeedCheck Feedback] ${type}`);
+        const mailtoUrl = `mailto:kentbanks96@gmail.com?subject=${subject}&body=${encodeURIComponent(telegramText)}`;
+        window.location.href = mailtoUrl;
+        submitFeedbackBtn.disabled = false;
+        submitFeedbackBtn.textContent = 'Submit Feedback';
+        closeModal('feedbackModal');
+      });
     });
   }
 

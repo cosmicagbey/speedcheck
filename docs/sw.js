@@ -1,4 +1,4 @@
-const CACHE_NAME = 'speedcheck-v1.2.4';
+const CACHE_NAME = 'speedcheck-v1.2.5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const ASSETS_TO_CACHE = [
   './data/ghana_speed_limits.json',
   './manifest.json',
   './favicon.png',
+  './splash_screen_banner.jpg',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];

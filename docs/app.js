@@ -2243,6 +2243,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Dismiss splash screen after 2.2s or on tap
+  const splash = document.getElementById('splashScreen');
+  if (splash) {
+    let dismissed = false;
+    const dismissSplash = () => {
+      if (dismissed) return;
+      dismissed = true;
+      splash.style.opacity = '0';
+      splash.style.pointerEvents = 'none';
+      setTimeout(() => { splash.style.display = 'none'; }, 400);
+    };
+    splash.addEventListener('click', dismissSplash);
+    setTimeout(dismissSplash, 2200);
+  }
+
   renderCameraLists();
   renderEvidenceLogs();
   updateUI();

@@ -396,7 +396,7 @@ private fun sendFeedbackEmail(
             appendLine(message)
             appendLine()
             appendLine("------------------------------")
-            appendLine("App: SpeedCheck v1.0.2 (Build 14)")
+            appendLine("App: SpeedCheck v1.0.3 (Build 15)")
             appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
             appendLine("Android OS: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
         }

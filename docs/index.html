@@ -241,6 +241,10 @@
           🔒 Privacy Policy & Data
         </button>
 
+        <button id="openFeedbackBtn" class="modal-btn" style="margin-top: 8px; background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: var(--safe-green); font-weight: bold;">
+          💬 Contact & Feedback
+        </button>
+
         <p class="setting-desc" style="margin-top: 14px; line-height: 1.5;">
           Mapped road limits are incomplete; always follow posted signs.
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" style="color: var(--safe-green);">
@@ -370,6 +374,47 @@
         <p>All core detection and voice algorithms function entirely offline once cached.</p>
         
         <button class="modal-btn primary" data-close-modal="privacyModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact & Feedback Modal -->
+  <div id="feedbackModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Contact & Feedback</h2>
+        <button class="close-btn" data-close-modal="feedbackModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 11px; font-weight: bold; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 6px;">TYPE</label>
+          <select id="feedbackTypeSelect" class="styled-select" style="width: 100%; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); color: var(--text-primary); border: 1px solid rgba(255, 255, 255, 0.15); font-size: 14px; box-sizing: border-box;">
+            <option value="Bug Report" selected>Bug Report</option>
+            <option value="Feature Request">Feature Request</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 11px; font-weight: bold; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 6px;">
+            MESSAGE <span style="color: var(--exceeded-red); font-weight: bold;">*</span>
+          </label>
+          <textarea id="feedbackMessageInput" rows="4" placeholder="What's on your mind?" style="width: 100%; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); color: var(--text-primary); border: 1px solid rgba(255, 255, 255, 0.15); font-size: 14px; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+          <div id="feedbackMessageError" style="display: none; color: var(--exceeded-red); font-size: 11px; margin-top: 4px;">Message is required</div>
+        </div>
+
+        <div style="margin-bottom: 18px;">
+          <label style="display: block; font-size: 11px; font-weight: bold; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 6px;">CONTACT (OPTIONAL)</label>
+          <input id="feedbackContactInput" type="text" placeholder="Email or Phone" style="width: 100%; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); color: var(--text-primary); border: 1px solid rgba(255, 255, 255, 0.15); font-size: 14px; box-sizing: border-box;">
+        </div>
+
+        <button id="submitFeedbackBtn" class="modal-btn primary" style="width: 100%; padding: 14px; font-size: 15px; font-weight: bold; border-radius: 12px;">
+          Submit Feedback
+        </button>
+
+        <a id="joinWhatsappBtn" href="https://chat.whatsapp.com/I69GQ8XQDrL0tev0pgFHhB" target="_blank" rel="noopener noreferrer" class="modal-btn" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px; margin-top: 10px; font-size: 14px; font-weight: bold; color: #25D366; border-color: rgba(37, 211, 102, 0.4); background: rgba(37, 211, 102, 0.1); border-radius: 12px; text-decoration: none; box-sizing: border-box;">
+          💬 Join WhatsApp Community
+        </a>
       </div>
     </div>
   </div>

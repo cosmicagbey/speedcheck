@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -177,6 +178,7 @@ fun SettingsScreen(
     var showGhanaGuideDialog by remember { mutableStateOf(false) }
     var showSpeedometerGuideDialog by remember { mutableStateOf(false) }
     var showPrivacyPolicyDialog by remember { mutableStateOf(false) }
+    var showFeedbackSheet by remember { mutableStateOf(false) }
     var isCameraListExpanded by remember { mutableStateOf(false) }
 
     val cooldownOptions = listOf(10, 15, 20, 30, 60)
@@ -678,6 +680,22 @@ fun SettingsScreen(
                 Text("Privacy Policy")
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // SECTION 10: Contact & Feedback
+            Button(
+                onClick = { showFeedbackSheet = true },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SpeedSafeGreen,
+                    contentColor = Color.Black
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Forum, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Contact & Feedback", fontWeight = FontWeight.Bold)
+            }
+
             Spacer(modifier = Modifier.height(28.dp))
         }
     }
@@ -692,6 +710,16 @@ fun SettingsScreen(
 
     if (showPrivacyPolicyDialog) {
         PrivacyPolicyDialog(onDismiss = { showPrivacyPolicyDialog = false })
+    }
+
+    if (showFeedbackSheet) {
+        ContactFeedbackBottomSheet(
+            onDismiss = { showFeedbackSheet = false },
+            onOpenPrivacyPolicy = {
+                showFeedbackSheet = false
+                showPrivacyPolicyDialog = true
+            }
+        )
     }
 }
 

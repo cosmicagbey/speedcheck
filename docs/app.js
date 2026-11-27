@@ -2132,6 +2132,61 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Contact & Feedback Button
+  const feedbackBtn = document.getElementById('openFeedbackBtn');
+  const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
+  const feedbackTypeSelect = document.getElementById('feedbackTypeSelect');
+  const feedbackMessageInput = document.getElementById('feedbackMessageInput');
+  const feedbackContactInput = document.getElementById('feedbackContactInput');
+  const feedbackMessageError = document.getElementById('feedbackMessageError');
+
+  if (feedbackBtn) {
+    feedbackBtn.addEventListener('click', () => {
+      closeModal('settingsModal');
+      if (feedbackMessageError) feedbackMessageError.style.display = 'none';
+      openModal('feedbackModal');
+    });
+  }
+
+  if (submitFeedbackBtn && feedbackMessageInput) {
+    feedbackMessageInput.addEventListener('input', () => {
+      if (feedbackMessageInput.value.trim() && feedbackMessageError) {
+        feedbackMessageError.style.display = 'none';
+      }
+    });
+
+    submitFeedbackBtn.addEventListener('click', () => {
+      const msg = feedbackMessageInput.value.trim();
+      if (!msg) {
+        if (feedbackMessageError) feedbackMessageError.style.display = 'block';
+        feedbackMessageInput.focus();
+        return;
+      }
+
+      const type = feedbackTypeSelect ? feedbackTypeSelect.value : 'General';
+      const contact = feedbackContactInput ? feedbackContactInput.value.trim() : '';
+      const subject = encodeURIComponent(`[SpeedCheck Feedback] ${type}`);
+      const bodyLines = [
+        `Feedback Type: ${type}`,
+        contact ? `Contact: ${contact}` : '',
+        '',
+        'Message:',
+        msg,
+        '',
+        '------------------------------',
+        'App: SpeedCheck Web (PWA)',
+        `User Agent: ${navigator.userAgent}`
+      ].filter(l => l !== undefined).join('\n');
+
+      const mailtoUrl = `mailto:kentbanks96@gmail.com?subject=${subject}&body=${encodeURIComponent(bodyLines)}`;
+      window.location.href = mailtoUrl;
+
+      feedbackMessageInput.value = '';
+      if (feedbackContactInput) feedbackContactInput.value = '';
+      closeModal('feedbackModal');
+    });
+  }
+
   // Modal Close buttons
   document.querySelectorAll('[data-close-modal]').forEach(btn => {
     btn.addEventListener('click', () => {
